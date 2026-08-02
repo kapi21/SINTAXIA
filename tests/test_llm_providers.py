@@ -123,5 +123,18 @@ class TestApplyConfig(unittest.TestCase):
         self.assertEqual(cfg["openai_base"], "http://x/v1")
 
 
+    def test_temperature_config(self):
+        ai = AdventureAI(temperature=0.7)
+        self.assertEqual(ai.temperature, 0.7)
+        ai.apply_config({"temperature": 1.4})
+        self.assertEqual(ai.temperature, 1.4)
+        self.assertEqual(ai.config_dict()["temperature"], 1.4)
+        # Verificación de clamping 0.0 - 2.0
+        ai.apply_config({"temperature": 3.0})
+        self.assertEqual(ai.temperature, 2.0)
+        ai.apply_config({"temperature": -1.0})
+        self.assertEqual(ai.temperature, 0.0)
+
+
 if __name__ == "__main__":
     unittest.main()
