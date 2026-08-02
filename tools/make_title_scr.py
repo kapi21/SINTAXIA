@@ -122,29 +122,22 @@ def rows_to_preview(rows: list[list[int]]) -> Image.Image:
 
 
 def main() -> None:
-    if not SRC.is_file():
-        raise SystemExit(f"No existe {SRC}")
-    src = Image.open(SRC).convert("RGB")
-    crop = src.crop(CROP)
-    fitted = Image.new("RGB", (W, H), PALETTE_RGB[0])
-    body_h = 184
-    scaled = crop.resize((W, body_h), Image.Resampling.NEAREST)
-    fitted.paste(scaled, (0, 0))
-    # Tapar restos de texto/UI del arte original (citas y menu)
-    dr = ImageDraw.Draw(fitted)
-    dr.rectangle((210, 8, 319, 78), fill=PALETTE_RGB[0])  # citas arriba-derecha
-    dr.rectangle((235, 130, 319, 183), fill=PALETTE_RGB[0])  # menu abajo-derecha
-    rows = build_indexed(fitted)
+    src_path = ROOT / "imagen" / "splash.png"
+    if not src_path.is_file():
+        src_path = SRC
+    if not src_path.is_file():
+        raise SystemExit(f"No existe imagen de origen en {src_path}")
+    print(f"Procesando imagen: {src_path}")
+    src = Image.open(src_path).convert("RGB")
+    scaled = src.resize((W, H), Image.Resampling.LANCZOS)
+    rows = build_indexed(scaled)
     title = "SINTAXIA"
     scale = 3
     total_w = len(title) * (5 * scale + scale) - scale
-    blit_text(rows, title, max(0, (W - total_w) // 2), 6, ink=3, scale=scale)
-    for y in range(H - 16, H):
-        for x in range(W):
-            rows[y][x] = 0
+    blit_text(rows, title, max(0, (W - total_w) // 2), 8, ink=3, scale=scale)
     foot = "PULSA ESPACIO"
     fw = len(foot) * 6 - 1
-    blit_text(rows, foot, max(0, (W - fw) // 2), H - 14, ink=1, scale=1)
+    blit_text(rows, foot, max(0, (W - fw) // 2), H - 16, ink=1, scale=1)
     scr = rows_to_scr(rows)
     OUT_SCR.parent.mkdir(parents=True, exist_ok=True)
     OUT_SCR.write_bytes(scr)
@@ -155,3 +148,4 @@ def main() -> None:
 
 if __name__ == "__main__":
     main()
+
