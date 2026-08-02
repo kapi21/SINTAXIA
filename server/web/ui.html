@@ -499,6 +499,9 @@
               <button id="btnLoadSlot"
                       data-tip-title="CARGAR SLOT"
                       data-tip="Restaura la partida del slot elegido. Sustituye el estado actual del servidor.">Cargar</button>
+              <button class="danger" id="btnDeleteSlot"
+                      data-tip-title="BORRAR SLOT"
+                      data-tip="Elimina la partida guardada en el slot seleccionado de la memoria del PC.">Borrar</button>
               <button id="btnListSaves"
                       data-tip-title="LISTAR"
                       data-tip="Actualiza la lista de los tres slots y muestra si estan vacios u ocupados.">Listar</button>
@@ -870,6 +873,20 @@
       });
       if (res.packet) $("lastPacket").textContent = res.packet;
       toast("LOAD " + slot);
+      await refresh();
+    };
+    $("btnDeleteSlot").onclick = async () => {
+      const slot = Number($("saveSlot").value);
+      const data = await api("/api/delete_save", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ slot }),
+      });
+      if (data.deleted) {
+        toast("BORRADO " + slot);
+      } else {
+        toast("SLOT " + slot + " VACIO");
+      }
       await refresh();
     };
     $("btnModels").onclick = () => loadModels(false);

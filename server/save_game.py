@@ -90,3 +90,13 @@ def load_slot(ai: AdventureAI, slot: int, base: Path | None = None) -> dict[str,
         raise ValueError("save corrupto")
     ai.import_save(data)
     return data
+
+
+def delete_slot(slot: int, base: Path | None = None) -> bool:
+    slot = validate_slot(slot)
+    path = slot_path(slot, base)
+    if path.is_file():
+        path.unlink()
+        return True
+    return False
+

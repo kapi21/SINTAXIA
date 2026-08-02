@@ -25,7 +25,7 @@ from urllib.parse import parse_qs, unquote_plus, urlparse
 
 from ai_adventure import DEFAULT_MODEL, AdventureAI, list_ollama_models, list_provider_models
 from protocol import build_packet, packet_from_text, parse_packet
-from save_game import list_slots, load_slot, save_slot, validate_slot
+from save_game import delete_slot, list_slots, load_slot, save_slot, validate_slot
 
 HOST = "0.0.0.0"
 PORT = 8080
@@ -378,6 +378,17 @@ class AdventureHandler(BaseHTTPRequestHandler):
                     )
                 except FileNotFoundError as exc:
                     self._send_json({"ok": False, "error": str(exc)}, 404)
+                except Exception as exc:
+                    self._send_json({"ok": False, "error": str(exc)}, 400)
+            return
+
+        if path == "/api/delete_save":
+            data = self._read_json()
+            with _state_lock:
+                try:
+                    slot = validate_slot(data.get("slot", 1))
+                    deleted = delete_slot(slot)
+                    self._send_json({"ok": True, "deleted": deleted, "slots": list_slots()})
                 except Exception as exc:
                     self._send_json({"ok": False, "error": str(exc)}, 400)
             return
