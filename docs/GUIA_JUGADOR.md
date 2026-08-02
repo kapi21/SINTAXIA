@@ -14,7 +14,12 @@ Escribes lo que quieres hacer, como si hablaras con alguien:
 > abro la puerta  
 > cojo la antorcha  
 
-El maestro te responde con la narracion, a veces suena el chip de musica del Amstrad y el borde de la pantalla cambia segun la situacion (peligro, objeto, victoria…).
+El maestro te responde con la narracion de forma **animada letra a letra** (efecto maquina de escribir) acompanado de sonido sinteticos en el chip del Amstrad. 
+
+Ademas:
+- **Colores dinamicos**: El texto cambia de color segun el momento (ambar para historia, rojo para peligro/combate, verde para tesoros y logros).
+- **El borde cambia de color** segun la situacion.
+- **Paginacion**: Si la historia es larga, el juego se pausa con `[ESPACIO para continuar]` para que no te pierdas nada.
 
 Tambien puedes guardar la partida y retomarla otro dia.
 
@@ -88,7 +93,9 @@ Si sale **SERVIDOR NO ACTIVO**:
 | Escribes | Que pasa |
 |----------|----------|
 | `AYUDA` | Te recuerda los comandos. |
-| `INV` | Mira lo que llevas. |
+| `INV` | Mira lo que llevas encima. |
+| `!` | Repite el ultimo comando que escribiste. |
+| `D` | Pantalla de diagnostico (revisa tu conexion y estado del juego). |
 | `NUEVA` | Empieza una aventura desde cero. |
 | `SAVE 1` | Guarda la partida en la ranura 1 (tambien 2 o 3). |
 | `LOAD 1` | Carga la partida de esa ranura. |
