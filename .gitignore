@@ -10,21 +10,8 @@ RESP.TXT
 PING.TXT
 *.BAK
 
-# Local hardware dumps / media (not part of the engine)
-*.pdf
-*.zip
-*.JPG
-*.jpg
-*.png
-*.jpeg
-m4info.txt
-M4.txt
-DSC*
-IMG_*
-grabacion*
-Carcasa*/
-m4_wifi*/
-RulezCharge*/
+# Material local (no forma parte del motor publicado)
+archivo/
 docs/superpowers/
 
 # OS / editor
@@ -33,3 +20,8 @@ Thumbs.db
 .vscode/
 .idea/
 *.swp
+
+# Copias locales de assets
+*- copia.png
+* - copia.*
+

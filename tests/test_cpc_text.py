@@ -1,10 +1,14 @@
 """Tests para cpc_text."""
 
+import sys
+from pathlib import Path
+
+sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "server"))
+
 from cpc_text import normalize_cpc, wrap_lines
 
 
 def test_normalize_removes_accents():
-    # inverted ! -> ! ; accents stripped
     assert normalize_cpc("\u00a1Hola, Jos\u00e9!") == "!Hola, Jose!"
     assert normalize_cpc("a\u00f1o ni\u00f1o") == "ano nino"
 

@@ -1,5 +1,10 @@
 """Tests para protocol."""
 
+import sys
+from pathlib import Path
+
+sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "server"))
+
 from protocol import build_packet, parse_packet, packet_from_text
 
 

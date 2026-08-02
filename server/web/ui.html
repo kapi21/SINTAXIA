@@ -1,0 +1,473 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>SINTAXIA — Panel CPC</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&family=VT323&display=swap" rel="stylesheet" />
+  <style>
+    :root {
+      --cpc-black: #000000;
+      --cpc-blue: #0000d4;
+      --cpc-blue2: #0080ff;
+      --cpc-yellow: #ffff55;
+      --cpc-amber: #ffb000;
+      --cpc-cyan: #55ffff;
+      --cpc-white: #ffffff;
+      --cpc-red: #ff5555;
+      --cpc-green: #55ff55;
+      --cpc-gray: #808080;
+      --pixel: "Press Start 2P", monospace;
+      --term: "VT323", "Courier New", monospace;
+    }
+    * { box-sizing: border-box; }
+    html, body { margin: 0; min-height: 100%; }
+    body {
+      background: var(--cpc-blue);
+      color: var(--cpc-yellow);
+      font-family: var(--term);
+      font-size: 22px;
+      line-height: 1.25;
+      overflow-x: hidden;
+    }
+    /* Marco tipo monitor CPC */
+    .bezel {
+      max-width: 1080px;
+      margin: 0.75rem auto 1.5rem;
+      background: #1a1a1a;
+      border: 10px solid #333;
+      box-shadow:
+        inset 0 0 0 4px #111,
+        0 0 0 6px #555,
+        0 12px 0 #0a0a0a;
+      position: relative;
+    }
+    .screen {
+      background: var(--cpc-black);
+      border: 6px solid var(--cpc-blue);
+      position: relative;
+      overflow: hidden;
+    }
+    .screen::after {
+      content: "";
+      pointer-events: none;
+      position: absolute;
+      inset: 0;
+      background: repeating-linear-gradient(
+        to bottom,
+        rgba(255,255,255,0.035) 0px,
+        rgba(255,255,255,0.035) 1px,
+        transparent 2px,
+        transparent 3px
+      );
+      animation: scan 8s linear infinite;
+      z-index: 5;
+    }
+    @keyframes scan {
+      from { background-position: 0 0; }
+      to { background-position: 0 60px; }
+    }
+    @keyframes blink {
+      0%, 49% { opacity: 1; }
+      50%, 100% { opacity: 0; }
+    }
+    @keyframes borderPulse {
+      0%, 100% { border-color: var(--cpc-blue); }
+      50% { border-color: var(--cpc-blue2); }
+    }
+    .screen { animation: borderPulse 3.5s ease-in-out infinite; }
+
+    /* Hero full-bleed */
+    .hero {
+      position: relative;
+      width: 100%;
+      min-height: 220px;
+      background: #000 url("/assets/hero.png") center / cover no-repeat;
+      image-rendering: pixelated;
+      image-rendering: crisp-edges;
+    }
+    .hero::before {
+      content: "";
+      position: absolute;
+      inset: 0;
+      background:
+        linear-gradient(to right, rgba(0,0,0,0.55) 0%, rgba(0,0,0,0.15) 55%, transparent 100%),
+        linear-gradient(to top, rgba(0,0,0,0.75) 0%, transparent 50%);
+    }
+    .hero-copy {
+      position: relative;
+      z-index: 2;
+      margin: 1rem 1rem 1.1rem;
+      padding: 0.95rem 1rem 0.85rem;
+      max-width: 36rem;
+      background: rgba(0, 0, 0, 0.82);
+      border: 3px solid var(--cpc-amber);
+      box-shadow:
+        4px 4px 0 #000,
+        inset 0 0 0 2px #000;
+    }
+    .brand {
+      font-family: var(--pixel);
+      font-size: clamp(1rem, 3.2vw, 1.55rem);
+      color: var(--cpc-amber);
+      text-shadow: 2px 2px 0 #000;
+      margin: 0 0 0.65rem;
+      letter-spacing: 0.04em;
+      line-height: 1.45;
+    }
+    .tagline {
+      margin: 0;
+      color: var(--cpc-cyan);
+      font-size: 1.3rem;
+      max-width: none;
+      text-shadow: 1px 1px 0 #000;
+    }
+    .bootline {
+      margin: 0.7rem 0 0;
+      color: var(--cpc-green);
+      font-size: 1.15rem;
+      text-shadow: 1px 1px 0 #000;
+    }
+    .bootline .cursor {
+      display: inline-block;
+      width: 0.6ch;
+      background: var(--cpc-green);
+      animation: blink 1s step-end infinite;
+      margin-left: 2px;
+      height: 1em;
+      vertical-align: text-bottom;
+    }
+
+    .chrome {
+      padding: 0.85rem 1rem 1.2rem;
+      position: relative;
+      z-index: 2;
+    }
+    .ascii-bar {
+      font-family: var(--term);
+      color: var(--cpc-blue2);
+      white-space: nowrap;
+      overflow: hidden;
+      margin: 0 0 0.75rem;
+      letter-spacing: 0.02em;
+    }
+    .grid {
+      display: grid;
+      gap: 0.9rem;
+      grid-template-columns: 1fr;
+    }
+    @media (min-width: 900px) {
+      .grid { grid-template-columns: 1.05fr 0.95fr; }
+      .hero { min-height: 280px; }
+    }
+
+    .panel {
+      border: 3px solid var(--cpc-yellow);
+      background: #000010;
+      padding: 0.7rem 0.8rem 0.9rem;
+      position: relative;
+    }
+    .panel h2 {
+      margin: 0 0 0.55rem;
+      font-family: var(--pixel);
+      font-size: 0.62rem;
+      color: var(--cpc-amber);
+      letter-spacing: 0.06em;
+      line-height: 1.6;
+    }
+    .panel h2::before { content: "> "; color: var(--cpc-cyan); }
+
+    label {
+      display: block;
+      margin: 0.55rem 0 0.15rem;
+      color: var(--cpc-cyan);
+      font-size: 1.05rem;
+    }
+    input, select, textarea, button {
+      font-family: var(--term);
+      font-size: 1.2rem;
+    }
+    input, select, textarea {
+      width: 100%;
+      background: var(--cpc-black);
+      color: var(--cpc-yellow);
+      border: 2px solid var(--cpc-blue2);
+      border-radius: 0;
+      padding: 0.25rem 0.4rem;
+      outline: none;
+    }
+    input:focus, select:focus, textarea:focus {
+      border-color: var(--cpc-amber);
+      box-shadow: none;
+    }
+    textarea {
+      min-height: 130px;
+      resize: vertical;
+      line-height: 1.2;
+    }
+    .row { display: grid; gap: 0.6rem; grid-template-columns: 1fr 1fr; }
+    .actions {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.45rem;
+      margin-top: 0.85rem;
+    }
+    button {
+      cursor: pointer;
+      border: 2px solid var(--cpc-amber);
+      background: var(--cpc-black);
+      color: var(--cpc-amber);
+      padding: 0.28rem 0.65rem;
+      border-radius: 0;
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+      transition: background 0.15s, color 0.15s, transform 0.1s;
+    }
+    button:hover {
+      background: var(--cpc-amber);
+      color: #000;
+      transform: translate(-1px, -1px);
+    }
+    button:active { transform: translate(1px, 1px); }
+    button.primary {
+      background: var(--cpc-amber);
+      color: #000;
+      border-color: var(--cpc-white);
+    }
+    button.danger {
+      border-color: var(--cpc-red);
+      color: var(--cpc-red);
+    }
+    button.danger:hover {
+      background: var(--cpc-red);
+      color: #000;
+    }
+
+    .status {
+      font-size: 1.15rem;
+      padding: 0.35rem 0.5rem;
+      margin-bottom: 0.55rem;
+      border: 2px dashed var(--cpc-gray);
+      color: var(--cpc-white);
+      background: #000;
+    }
+    .status.ok {
+      border-color: var(--cpc-green);
+      color: var(--cpc-green);
+    }
+    .status.bad {
+      border-color: var(--cpc-red);
+      color: var(--cpc-red);
+    }
+    pre {
+      margin: 0;
+      white-space: pre-wrap;
+      word-break: break-word;
+      font-family: var(--term);
+      font-size: 1.15rem;
+      color: var(--cpc-green);
+      background: #000;
+      border: 2px solid var(--cpc-blue);
+      padding: 0.45rem 0.5rem;
+      min-height: 4.5rem;
+    }
+    .hint {
+      color: var(--cpc-gray);
+      font-size: 1rem;
+      margin: 0.55rem 0 0;
+    }
+    .toast {
+      position: fixed;
+      right: 1rem;
+      bottom: 1rem;
+      background: #000;
+      color: var(--cpc-amber);
+      border: 3px solid var(--cpc-amber);
+      padding: 0.45rem 0.75rem;
+      font-family: var(--pixel);
+      font-size: 0.55rem;
+      line-height: 1.5;
+      display: none;
+      z-index: 20;
+    }
+    .led {
+      display: inline-block;
+      width: 10px;
+      height: 10px;
+      background: var(--cpc-red);
+      margin-right: 0.4rem;
+      box-shadow: 0 0 0 2px #000;
+      animation: blink 1.2s step-end infinite;
+      vertical-align: middle;
+    }
+    .status.ok .led {
+      background: var(--cpc-green);
+      animation: none;
+    }
+  </style>
+</head>
+<body>
+  <div class="bezel">
+    <div class="screen">
+      <div class="hero" role="img" aria-label="Ilustracion pixel: monitor CPC, castillo y aventura de texto SINTAXIA">
+        <div class="hero-copy">
+          <h1 class="brand">SINTAXIA</h1>
+          <p class="tagline">Aventura conversacional. IA + Amstrad CPC + M4.</p>
+          <p class="bootline">Ready.<span class="cursor"></span></p>
+        </div>
+      </div>
+
+      <div class="chrome">
+        <p class="ascii-bar">+-- MODE 1 PANEL -- M4 WiFi -- AY-3-8912 -- LLM MASTER --+</p>
+        <div class="grid">
+          <section class="panel">
+            <h2>Motor</h2>
+            <div id="statusBox" class="status"><span class="led"></span>Cargando…</div>
+            <label>Modo</label>
+            <select id="mode">
+              <option value="ai">IA (LLM)</option>
+              <option value="mock">Mock (sin IA)</option>
+            </select>
+            <label>Proveedor</label>
+            <select id="provider">
+              <option value="ollama">Ollama (API nativa)</option>
+              <option value="openai">API OpenAI-compatible</option>
+            </select>
+            <div class="row">
+              <div>
+                <label>Modelo</label>
+                <input id="model" list="modelList" placeholder="llama3.1:8b" />
+                <datalist id="modelList"></datalist>
+              </div>
+              <div>
+                <label>Temperatura</label>
+                <input id="temperature" type="number" min="0" max="2" step="0.1" value="0.7" />
+              </div>
+            </div>
+            <label>URL Ollama chat</label>
+            <input id="ollama_url" placeholder="http://127.0.0.1:11434/api/chat" />
+            <label>Base OpenAI-compatible</label>
+            <input id="openai_base" placeholder="http://127.0.0.1:11434/v1" />
+            <label>API key</label>
+            <input id="api_key" type="password" placeholder="(opcional)" />
+            <label>System prompt</label>
+            <textarea id="system"></textarea>
+            <div class="actions">
+              <button class="primary" id="btnSave">Guardar</button>
+              <button id="btnModels">Modelos</button>
+              <button class="danger" id="btnReset">Nueva</button>
+              <button id="btnRefresh">Refresh</button>
+            </div>
+            <p class="hint">CPC: /ping /turn /reset — Panel: /ui</p>
+          </section>
+
+          <section class="panel">
+            <h2>Paquete al CPC</h2>
+            <label>Jugador</label>
+            <pre id="lastUser">(nada aun)</pre>
+            <label>Respuesta T:/S:/E:</label>
+            <pre id="lastPacket">(nada aun)</pre>
+            <label>Error LLM</label>
+            <pre id="lastError">—</pre>
+            <label>Probar turno</label>
+            <div class="row">
+              <input id="testMsg" placeholder="miro alrededor" />
+              <button id="btnTest">Enviar</button>
+            </div>
+          </section>
+        </div>
+      </div>
+    </div>
+  </div>
+  <div class="toast" id="toast"></div>
+  <script>
+    const $ = (id) => document.getElementById(id);
+    function toast(msg) {
+      const t = $("toast");
+      t.textContent = msg;
+      t.style.display = "block";
+      setTimeout(() => t.style.display = "none", 2200);
+    }
+    async function api(path, opts) {
+      const r = await fetch(path, opts);
+      if (!r.ok) throw new Error(await r.text());
+      const ct = r.headers.get("content-type") || "";
+      if (ct.includes("application/json")) return r.json();
+      return r.text();
+    }
+    function fill(cfg, status) {
+      $("mode").value = status.mock ? "mock" : "ai";
+      $("provider").value = cfg.provider || "ollama";
+      $("model").value = cfg.model || "";
+      $("temperature").value = cfg.temperature ?? 0.7;
+      $("ollama_url").value = cfg.ollama_url || "";
+      $("openai_base").value = cfg.openai_base || "";
+      $("system").value = cfg.system || "";
+      $("api_key").value = "";
+      $("api_key").placeholder = cfg.api_key_set ? "(guardada)" : "(opcional)";
+      $("lastUser").textContent = cfg.last_user || "(nada aun)";
+      $("lastPacket").textContent = cfg.last_packet || "(nada aun)";
+      $("lastError").textContent = cfg.last_error || "—";
+      const box = $("statusBox");
+      const mode = status.mock ? "MOCK" : (cfg.provider || "ollama").toUpperCase();
+      box.innerHTML = '<span class="led"></span>READY · ' + mode + ' · ' + (cfg.model || '-') + ' · H' + (cfg.history_len || 0);
+      box.className = "status ok";
+    }
+    async function refresh() {
+      const status = await api("/api/status");
+      const cfg = await api("/api/config");
+      fill(cfg, status);
+    }
+    $("btnRefresh").onclick = () => refresh().catch(e => toast(String(e)));
+    $("btnSave").onclick = async () => {
+      const body = {
+        mock: $("mode").value === "mock",
+        provider: $("provider").value,
+        model: $("model").value,
+        temperature: Number($("temperature").value),
+        ollama_url: $("ollama_url").value,
+        openai_base: $("openai_base").value,
+        system: $("system").value,
+      };
+      const key = $("api_key").value;
+      if (key) body.api_key = key;
+      await api("/api/config", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(body),
+      });
+      toast("CONFIG OK");
+      await refresh();
+    };
+    $("btnReset").onclick = async () => {
+      await api("/api/reset", { method: "POST" });
+      toast("NUEVA PARTIDA");
+      await refresh();
+    };
+    $("btnModels").onclick = async () => {
+      const data = await api("/api/models");
+      const list = $("modelList");
+      list.innerHTML = "";
+      (data.models || []).forEach(m => {
+        const o = document.createElement("option");
+        o.value = m;
+        list.appendChild(o);
+      });
+      toast((data.models || []).length + " MODELOS");
+    };
+    $("btnTest").onclick = async () => {
+      const msg = encodeURIComponent($("testMsg").value || "miro alrededor");
+      const text = await api("/turn?msg=" + msg);
+      $("lastPacket").textContent = text;
+      toast("TURN OK");
+      await refresh();
+    };
+    refresh().catch(e => {
+      $("statusBox").innerHTML = '<span class="led"></span>ERROR: ' + e;
+      $("statusBox").className = "status bad";
+    });
+  </script>
+</body>
+</html>

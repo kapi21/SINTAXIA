@@ -6,6 +6,12 @@ from typing import TypedDict
 
 from cpc_text import normalize_cpc, wrap_lines
 
+# MODE 1 = 40 cols. CPC string/LINE INPUT max ~255.
+# "T:" + cuerpo debe quedar < 255 para no cortar en el Amstrad.
+CPC_WIDTH = 40
+CPC_MAX_LINES = 6
+CPC_T_BODY_MAX = 250
+
 
 class Packet(TypedDict):
     lines: list[str]
@@ -18,21 +24,57 @@ def build_packet(lines: list[str], sound: int, error: int = 0) -> str:
     sound = max(0, min(5, int(sound)))
     error = 1 if int(error) else 0
     safe_lines: list[str] = []
-    for line in lines:
+    truncated = False
+
+    for idx, line in enumerate(lines):
         line = normalize_cpc(str(line))
         if not line:
             continue
-        # Garantizar <=40 por linea
-        if len(line) > 40:
-            safe_lines.extend(wrap_lines(line, width=40, max_lines=8 - len(safe_lines)))
-        else:
-            safe_lines.append(line)
-        if len(safe_lines) >= 8:
+        room = CPC_MAX_LINES - len(safe_lines)
+        if room <= 0:
+            truncated = True
             break
+        if len(line) > CPC_WIDTH:
+            full = wrap_lines(line, width=CPC_WIDTH, max_lines=99)
+            chunk = full[:room]
+            if len(full) > len(chunk):
+                truncated = True
+            safe_lines.extend(chunk)
+        else:
+            safe_lines.append(line[:CPC_WIDTH])
+        if len(safe_lines) >= CPC_MAX_LINES:
+            # Truncado solo si quedaba mas texto de entrada
+            rest = [normalize_cpc(str(x)) for x in lines[idx + 1 :] if normalize_cpc(str(x))]
+            if rest:
+                truncated = True
+            break
+
     if not safe_lines:
         safe_lines = ["..."]
-    t_body = "|".join(safe_lines[:8])
-    # CRLF: LINE INPUT del CPC corta en CR, no en LF solo
+
+    while True:
+        t_body = "|".join(safe_lines)
+        if len(t_body) <= CPC_T_BODY_MAX:
+            break
+        truncated = True
+        if len(safe_lines) <= 1:
+            t_body = safe_lines[0][: CPC_T_BODY_MAX - 3] + "..."
+            safe_lines = [t_body]
+            break
+        safe_lines.pop()
+
+    t_body = "|".join(safe_lines)
+    if truncated and safe_lines:
+        last = safe_lines[-1]
+        if not last.endswith("..."):
+            if len(last) > 37:
+                safe_lines[-1] = last[:37] + "..."
+            else:
+                safe_lines[-1] = last + "..."
+            t_body = "|".join(safe_lines)
+            if len(t_body) > CPC_T_BODY_MAX:
+                t_body = t_body[: CPC_T_BODY_MAX - 3] + "..."
+
     return f"T:{t_body}\r\nS:{sound}\r\nE:{error}\r\n"
 
 
@@ -66,4 +108,8 @@ def parse_packet(raw: str) -> Packet:
 
 def packet_from_text(text: str, sound: int = 0, error: int = 0) -> str:
     """Atajo: texto libre -> wrap + paquete."""
-    return build_packet(wrap_lines(text), sound=sound, error=error)
+    return build_packet(
+        wrap_lines(text, width=CPC_WIDTH, max_lines=CPC_MAX_LINES),
+        sound=sound,
+        error=error,
+    )

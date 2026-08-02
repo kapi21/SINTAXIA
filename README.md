@@ -8,12 +8,33 @@ La IA genera la narrativa en lenguaje natural, el PC la empaqueta para el CPC (4
 
 ---
 
+## Estructura del proyecto
+
+```text
+SINTAXIA/
+  README.md
+  run_server.bat          # atajo Windows
+  client/
+    aventura.bas          # cliente Locomotive BASIC (M4)
+  server/
+    server.py             # HTTP :8080
+    ai_adventure.py       # Ollama + historial
+    protocol.py           # paquete T:/S:/E:
+    cpc_text.py           # ASCII CPC + wrap 40
+    prompts/master.txt
+  tests/
+  docs/                   # notas de carga / planes
+  archivo/                # material local M4 (no publicado)
+```
+
+---
+
 ## Arquitectura
 
 ```text
 Amstrad CPC + M4          PC (servidor)
 ─────────────────         ──────────────────────────
-aventura.bas              server.py :8080
+client/aventura.bas       server/server.py :8080
   INPUT  ──HTTP GET──►    Ollama / mock
   |HTTPGET ◄──────────    paquete T: / S: / E:
   PRINT + SOUND AY
@@ -21,11 +42,11 @@ aventura.bas              server.py :8080
 
 | Pieza | Rol |
 |--------|-----|
-| `aventura.bas` | Cliente CPC (MODE 1, HTTP M4, parseo, SOUND) |
-| `server.py` | HTTP en puerto 8080 |
-| `ai_adventure.py` | Ollama + historial + reempaquetado |
-| `protocol.py` / `cpc_text.py` | Contrato de paquete y texto CPC-safe |
-| `prompts/master.txt` | System prompt del Master |
+| `client/aventura.bas` | Cliente CPC (MODE 1, HTTP M4, parseo, SOUND) |
+| `server/server.py` | HTTP en puerto 8080 |
+| `server/ai_adventure.py` | Ollama + historial + reempaquetado |
+| `server/protocol.py` / `cpc_text.py` | Contrato de paquete y texto CPC-safe |
+| `server/prompts/master.txt` | System prompt del Master |
 
 ## Protocolo (cuerpo HTTP)
 
@@ -56,18 +77,26 @@ IPs de ejemplo usadas en el PoC:
 | PC servidor | `192.168.1.4` |
 | M4 / CPC | `192.168.1.128` |
 
-Ajusta la IP del PC en la línea 150 de `aventura.bas` si cambia.
+Ajusta la IP del PC en `client/aventura.bas` (línea del `|HTTPGET`) si cambia.
 
 ---
 
 ## Arranque del servidor (PC)
 
 ```bash
-cd SINTAXIA
-python server.py                  # Ollama, modelo por defecto llama3.1:8b
-python server.py --model llama3.1:8b
-python server.py --mock           # sin IA (respuestas por palabras clave)
+# Windows
+run_server.bat
+run_server.bat --mock
+run_server.bat --model llama3.1:8b
+
+# o manualmente
+cd server
+python server.py
+python server.py --mock
 ```
+
+**Panel web:** [http://127.0.0.1:8080/ui](http://127.0.0.1:8080/ui)  
+Ahí puedes elegir mock / Ollama / API OpenAI-compatible, modelo, temperatura, system prompt, ver el último paquete `T:/S:/E:` y reiniciar partida.
 
 Prueba rápida:
 
@@ -77,11 +106,13 @@ curl "http://127.0.0.1:8080/turn?msg=miro+alrededor"
 curl http://127.0.0.1:8080/reset
 ```
 
+Más detalle de carga en el CPC: `docs/CARGA.md`.
+
 ---
 
 ## Cliente en el CPC
 
-1. Copia `aventura.bas` a la microSD de la M4  
+1. Copia `client/aventura.bas` a la microSD de la M4  
    (si no carga como ASCII, `SAVE"aventura` desde un emulador y copia el `.bas` tokenizado)
 2. En el CPC: `|NETSTAT` y comprueba IP
 3. `RUN"aventura`
@@ -103,17 +134,18 @@ LINE INPUT #9,a$:PRINT a$:CLOSEIN
 | Código | Efecto |
 |--------|--------|
 | 0 | Silencio |
-| 1 | Pitido grave (peligro) |
-| 2 | Ambiente / cueva |
-| 3 | Arpegio (objeto) |
-| 4 | Golpe (combate) |
-| 5 | Fanfarria (victoria) |
+| 1 | Peligro: grave + fade ENV/ENT |
+| 2 | Ambiente: eco suave 2 canales |
+| 3 | Objeto: arpegio con envolvente |
+| 4 | Combate: golpe + ruido AY |
+| 5 | Victoria: fanfarria ascendente |
 
 ---
 
 ## Tests
 
 ```bash
+cd server
 python -c "from protocol import build_packet, parse_packet; print(parse_packet(build_packet(['Hola'],2)))"
 ```
 
