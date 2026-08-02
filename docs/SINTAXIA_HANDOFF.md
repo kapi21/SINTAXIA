@@ -19,6 +19,7 @@
   - **NUEVO:** Selector de modelos con `<select>` + input manual + datalist
   - **FIX:** Servidor ya no se congela al hacer un turno (lock LLM separado)
   - **FIX:** Ollama modelos: errores reales visibles en panel (antes fallaba en silencio)
+  - **NUEVO:** Cliente BASIC AAA (`client/aventura.bas`): efecto typewriter con audio AY, tinta dinámicas según tono (`PEN` por `S:`), animación pensando, paginación `[ESPACIO]`, destello CRT, repetición `!` y modo debug `D`
   - Inventario/estado, slots save 1–3, guías `MANUAL` + `GUIA_JUGADOR`
   - Licencia MIT, `hero - copia.png` eliminado
 - **Pendiente:**

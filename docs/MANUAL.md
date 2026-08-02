@@ -335,11 +335,18 @@ Limites practicos:
 - Mensaje de jugador ~80 caracteres (URL BASIC).
 - Respuesta: hasta **6 lineas** de **40** caracteres (si hay mas, el PC corta y puede anadir `...`).
 
-### 8.3 Atmosfera
+### 8.3 Atmosfera y presentacion visual (Edicion Comercial AAA)
 
-- **Borde** segun codigo de sonido `S:` (peligro, ambiente, objeto…).
+- **Efecto Typewriter (maquina de escribir)**: El texto narrativo aparece caracter a caracter acompanado de un sutil sonido de pulsacion en el chip AY-3-8912.
+- **Tinta dinamica segun tono (`S:`)**:
+  - `S=0` (neutro) / `S=2` (ambiente): Tinta ambar (`PEN 1`).
+  - `S=1` (peligro) / `S=4` (combate): Tinta roja alerta (`PEN 3`).
+  - `S=3` (objeto) / `S=5` (victoria): Tinta verde brillante (`PEN 2`).
+- **Borde dinamico**: Cambia de color segun `S:` (peligro, cueva, tesoro, combate, victoria).
+- **Animacion Pensando...**: Muestra feedback de puntos con tonos progresivos de audio antes de la peticion HTTP.
+- **Paginacion automatica**: Tras 4 lineas impresas de respuesta, pausa la pantalla con `[ESPACIO para continuar]`.
+- **Efecto CRT Flash**: Destello inicial de pantalla al arrancar el programa.
 - **SOUND** con envolventes `ENV`/`ENT` (peligro grave, eco, arpegio, golpe+ruido, fanfarria).
-- Texto de error en tinta roja si `E:1`.
 
 ---
 
@@ -351,12 +358,14 @@ Todo se escribe en el prompt `>` (mayusculas/minusculas toleradas en la mayoria)
 
 | Comando | Accion |
 |---------|--------|
-| `AYUDA` | Muestra ayuda y la IP del servidor (`P$`). |
+| `AYUDA` | Muestra ayuda e IP del servidor (`P$`). |
 | `NUEVA` | Pide `/reset`: nueva partida (limpia historial y estado en el PC). |
 | `INV` / `inventario` / `objetos` | Lista lo que llevas (sin llamar a la IA). |
 | `SAVE 1` … `SAVE 3` | Guarda partida en ese slot (tambien `GUARDAR 1`). |
 | `LOAD 1` … `LOAD 3` | Carga ese slot (tambien `CARGAR 1`). |
 | `SAVES` / `PARTIDAS` | Lista slots ocupados/vacios. |
+| `!` | Repite el ultimo comando introducido. |
+| `D` / `DEBUG` | Pantalla de diagnostico (IP host, ultima URL, turnos, estado red). |
 | `QUIT` | Sale del programa. |
 
 Cualquier otra frase se interpreta como **accion de aventura** y se envia a `/turn`.

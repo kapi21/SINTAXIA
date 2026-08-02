@@ -1,9 +1,9 @@
-10 REM SINTAXIA - cliente CPC + M4
+10 REM SINTAXIA - cliente CPC + M4 (Edicion Comercial AAA)
 20 REM Host PC: cambia P$ si muda la IP
 30 P$="192.168.1.4:8080"
-40 S=0:E=0:OK=0:INTRO=0
+40 S=0:E=0:OK=0:INTRO=0:TN%=0:PREV$=""
 50 ON ERROR GOTO 8000
-60 GOSUB 7000:REM paleta
+60 GOSUB 7000:REM paleta + CRT flash (M5)
 62 GOSUB 9200:REM envolventes AY
 64 GOSUB 6900:REM titulo grafico
 65 INTRO=1
@@ -13,18 +13,22 @@
 100 PEN 1
 110 INPUT ">",M$
 120 IF M$="" THEN 100
+125 IF M$="!" THEN IF PREV$<>"" THEN M$=PREV$:PEN 2:PRINT ">";M$:PEN 1 ELSE PEN 3:PRINT "Sin comando anterior":PEN 1:GOTO 100
+128 IF M$<>"!" THEN PREV$=M$
 130 IF M$="QUIT" OR M$="quit" OR M$="Quit" THEN 8500
+135 IF M$="D" OR M$="d" OR M$="DEBUG" OR M$="debug" THEN GOSUB 7900:GOTO 100
 140 IF M$="AYUDA" OR M$="ayuda" OR M$="Ayuda" THEN GOSUB 7700:GOTO 100
 150 IF M$="NUEVA" OR M$="nueva" OR M$="Nueva" THEN GOSUB 7800:GOTO 100
 160 GOSUB 1000:REM encode -> U$
 170 A$="@"+P$+"/turn?msg="+U$+">RESP.TXT"
-180 IF LEN(A$)>240 THEN PEN 3:PRINT "Msg muy largo":GOTO 100
-190 PEN 2:PRINT "Esperando al maestro...":PEN 1
+180 IF LEN(A$)>240 THEN PEN 3:PRINT "Msg muy largo":PEN 1:GOTO 100
+190 GOSUB 1500:REM animacion pensando (M1)
 200 |HTTPGET,@A$
+205 TN%=TN%+1
 210 GOSUB 2000:REM leer RESP.TXT
 220 GOSUB 9100:REM borde segun S
-230 GOSUB 3000:REM mostrar T$
-240 GOSUB 9000:REM sonido
+230 GOSUB 3000:REM mostrar T$ (Typewriter M2, Tinta M3, Paginacion M4)
+240 GOSUB 9000:REM sonido AY
 250 GOTO 100
 1000 REM --- encode URL: espacio->+ resto especial->omitir ---
 1010 U$=""
@@ -41,6 +45,15 @@
 1080 NEXT
 1090 IF LEN(U$)>80 THEN U$=LEFT$(U$,80)
 1100 RETURN
+1500 REM --- animacion pensando (M1) ---
+1510 PEN 2:PRINT "Pensando";
+1520 FOR I=1 TO 3
+1530 SOUND 1,400+I*60,2,2,0,0,1
+1540 PRINT ".";
+1550 FOR D=1 TO 60:NEXT D
+1560 NEXT I
+1570 PRINT:PEN 1
+1580 RETURN
 2000 REM --- lee paquete RESP.TXT ---
 2010 T$="":S=0:E=1
 2020 OPENIN "RESP.TXT"
@@ -75,15 +88,37 @@
 2370 IF K=0 THEN RETURN
 2380 R$=MID$(R$,K+1)
 2390 GOTO 2310
-3000 REM --- imprime T$ por | ---
-3010 IF E<>0 THEN PEN 3:PRINT "ERROR:":PEN 1
-3020 P=1
-3030 IF P>LEN(T$) THEN PRINT:RETURN
+3000 REM --- imprime T$ por | con Typewriter (M2), Tinta (M3), Paginacion (M4) ---
+3010 IF E<>0 THEN PEN 3:PRINT "ERROR:":PEN 1:GOTO 3020
+3015 GOSUB 3200:REM seleccionar PEN segun S (M3)
+3020 P=1:LC%=0
+3030 IF P>LEN(T$) THEN PRINT:PEN 1:RETURN
 3040 J=INSTR(P,T$,"|")
-3050 IF J=0 THEN PRINT MID$(T$,P):PRINT:RETURN
-3060 PRINT MID$(T$,P,J-P)
-3070 P=J+1
-3080 GOTO 3030
+3050 IF J=0 THEN LLINE$=MID$(T$,P) ELSE LLINE$=MID$(T$,P,J-P)
+3060 GOSUB 3300:REM typewriter LLINE$ (M2)
+3070 LC%=LC%+1
+3080 IF LC%>=4 AND J>0 THEN GOSUB 3400:REM paginacion (M4)
+3090 IF J=0 THEN PRINT:PEN 1:RETURN
+3100 P=J+1
+3110 GOTO 3030
+3200 REM --- selecciona PEN segun S (M3) ---
+3210 IF S=0 OR S=2 THEN PEN 1:RETURN
+3220 IF S=1 OR S=4 THEN PEN 3:RETURN
+3230 IF S=3 OR S=5 THEN PEN 2:RETURN
+3240 PEN 1:RETURN
+3300 REM --- efecto typewriter caracter a caracter (M2) ---
+3310 FOR K%=1 TO LEN(LLINE$)
+3320 C1$=MID$(LLINE$,K%,1)
+3330 PRINT C1$;
+3340 IF C1$<>" " THEN SOUND 1,1200,1,1,0,0,1
+3350 NEXT K%
+3360 PRINT
+3370 RETURN
+3400 REM --- paginacion ESPACIO (M4) ---
+3410 PEN 2:PRINT "[ESPACIO para continuar]";:PEN 1
+3420 K$=INKEY$:IF K$<>" " THEN 3420
+3430 PRINT:LC%=0
+3440 RETURN
 6900 REM --- titulo grafico TITLE.SCR / ESPACIO ---
 6905 ON ERROR GOTO 6980
 6910 LOAD"TITLE.SCR",&C000
@@ -100,7 +135,7 @@
 6994 PEN 3:PRINT "SINTAXIA":PEN 1
 6996 PRINT:PRINT "Pulsa ESPACIO"
 6998 GOTO 6925
-7000 REM --- paleta monitor retro MODE 1 ---
+7000 REM --- paleta monitor retro MODE 1 + CRT Flash (M5) ---
 7010 MODE 1
 7020 BORDER 0
 7030 INK 0,0
@@ -108,7 +143,8 @@
 7050 INK 2,26
 7060 INK 3,6
 7070 PAPER 0:PEN 1:CLS
-7080 RETURN
+7080 FOR F%=0 TO 3:BORDER F%*4:FOR D%=1 TO 30:NEXT D%:NEXT F%:BORDER 0
+7090 RETURN
 7100 REM --- pantalla de introduccion ---
 7110 CLS
 7120 PEN 2:PRINT "======= SINTAXIA =======":PEN 1
@@ -124,6 +160,8 @@
 7220 PRINT " NUEVA  - reinicia partida"
 7225 PRINT " INV    - ver inventario"
 7226 PRINT " SAVE n / LOAD n / SAVES"
+7227 PRINT " !      - repetir ultimo comando"
+7228 PRINT " D      - diagnostico / debug"
 7230 PRINT " QUIT   - salir"
 7240 PRINT
 7250 PEN 2:PRINT "Comprobando servidor...":PEN 1
@@ -173,6 +211,7 @@
 7740 PRINT " miro alrededor, voy al norte..."
 7745 PRINT " INV / inventario - objetos"
 7746 PRINT " SAVE 1..3  LOAD 1..3  SAVES"
+7747 PRINT " ! (repetir)  D (debug)"
 7750 PRINT " AYUDA / NUEVA / QUIT"
 7760 PRINT "Servidor PC: ";P$
 7770 IF OK=1 THEN PRINT "Estado: activo" ELSE PRINT "Estado: dudoso"
@@ -187,6 +226,16 @@
 7860 GOSUB 3000
 7870 GOSUB 9000
 7880 RETURN
+7900 REM --- diagnostico / debug D (M10) ---
+7910 PRINT
+7920 PEN 2:PRINT "=== SINTAXIA DEBUG ===":PEN 1
+7930 PRINT "PC Host: ";P$
+7940 PRINT "Ultima URL: ";LEFT$(A$,38)
+7950 PRINT "Turnos jugados: ";TN%
+7960 IF OK=1 THEN PRINT "Servidor: ACTIVO" ELSE PRINT "Servidor: INACTIVO"
+7970 PRINT "Ultimo comando: ";PREV$
+7980 PRINT
+7990 RETURN
 8000 REM --- error handler ---
 8010 PEN 3:PRINT "Fallo red/archivo.":PEN 1
 8020 PRINT "Revisa run_server.bat en el PC."
