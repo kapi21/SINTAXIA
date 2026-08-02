@@ -1,0 +1,3 @@
+# Forzar saltos de línea CRLF en archivos BASIC para Amstrad CPC
+*.bas text eol=crlf
+*.SCR binary
