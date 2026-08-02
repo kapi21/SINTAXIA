@@ -10,7 +10,7 @@
   <em>IA + Amstrad CPC + M4 Board · narrativa, inventario y chip AY-3-8912</em>
 </p>
 
-**SINTAXIA** conecta un **Amstrad CPC real** (464/6128) a un LLM (Ollama u otro) mediante la **[M4 Board](https://github.com/M4Duke/m4hardware)** (Wi‑Fi).
+**SINTAXIA** conecta un **Amstrad CPC real** (464/6128) a un LLM (Ollama, OpenAI, Claude, Gemini u API compatible) mediante la **[M4 Board](https://github.com/M4Duke/m4hardware)** (Wi‑Fi).
 
 La IA genera la narrativa en lenguaje natural, el PC la empaqueta para el CPC (40 columnas, ASCII) y el cliente en Locomotive BASIC muestra el texto y dispara efectos en el chip **AY‑3‑8912**.
 
@@ -27,6 +27,7 @@ SINTAXIA/
   run_server.bat          # atajo Windows
   client/
     aventura.bas          # cliente Locomotive BASIC (M4)
+    TITLE.SCR             # pantalla de titulo MODE 1 (opcional)
   server/
     server.py             # HTTP :8080
     ai_adventure.py       # Ollama + historial
@@ -53,9 +54,12 @@ client/aventura.bas       server/server.py :8080
 
 | Pieza | Rol |
 |--------|-----|
-| `client/aventura.bas` | Cliente CPC (MODE 1, HTTP M4, parseo, SOUND) |
+| `client/aventura.bas` | Cliente CPC (MODE 1, HTTP M4, parseo, SOUND, titulo) |
+| `client/TITLE.SCR` | Splash grafico (generar con `python tools/make_title_scr.py`) |
+| `tools/make_title_scr.py` | Convierte `server/web/hero.png` → TITLE.SCR |
 | `server/server.py` | HTTP en puerto 8080 |
-| `server/ai_adventure.py` | Ollama + historial + reempaquetado |
+| `server/ai_adventure.py` | LLM (Ollama/OpenAI/Claude/Gemini/compat) + historial + reempaquetado |
+| `server/llm_providers.py` | Defaults y mapeo de mensajes por proveedor |
 | `server/protocol.py` / `cpc_text.py` | Contrato de paquete y texto CPC-safe |
 | `server/prompts/master.txt` | System prompt del Master |
 
@@ -107,7 +111,7 @@ python server.py --mock
 ```
 
 **Panel web:** [http://127.0.0.1:8080/ui](http://127.0.0.1:8080/ui)  
-Ahí puedes elegir mock / Ollama / API OpenAI-compatible, modelo, temperatura, system prompt, ver el último paquete `T:/S:/E:`, inventario/estado, **guardar/cargar slots 1–3** y reiniciar partida.
+Ahí puedes elegir mock / Ollama / OpenAI / Claude / Gemini / Compatible, modelo, temperatura, system prompt, ver el último paquete `T:/S:/E:`, inventario/estado, **guardar/cargar slots 1–3** y reiniciar partida. Al cambiar de proveedor se rellenan URL y modelo típicos; pasa el ratón por cada control para ver ayuda.
 
 Prueba rápida:
 
@@ -125,7 +129,7 @@ Más detalle: **[docs/MANUAL.md](docs/MANUAL.md)** (manual de usuario) y `docs/C
 
 ## Cliente en el CPC
 
-1. Copia `client/aventura.bas` a la microSD de la M4  
+1. Copia `client/aventura.bas` y `client/TITLE.SCR` a la microSD de la M4
    (si no carga como ASCII, `SAVE"aventura` desde un emulador y copia el `.bas` tokenizado)
 2. En el CPC: `|NETSTAT` y comprueba IP
 3. `RUN"aventura`

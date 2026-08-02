@@ -306,6 +306,62 @@
       background: var(--cpc-green);
       animation: none;
     }
+
+    /* Ayuda solo al pasar por el ? */
+    .tip-q {
+      display: inline-block;
+      margin-left: 0.25rem;
+      padding: 0 0.2rem;
+      color: var(--cpc-gray);
+      cursor: help;
+      font-size: 0.95em;
+      line-height: 1;
+      vertical-align: middle;
+      border: 1px solid var(--cpc-gray);
+      user-select: none;
+    }
+    .tip-q:hover,
+    .tip-q:focus {
+      color: var(--cpc-amber);
+      border-color: var(--cpc-amber);
+      outline: none;
+    }
+    h2 .tip-q {
+      font-family: var(--term);
+      font-size: 0.9rem;
+      font-weight: normal;
+      letter-spacing: 0;
+    }
+    #tipBubble {
+      position: fixed;
+      z-index: 40;
+      max-width: min(22rem, calc(100vw - 1.5rem));
+      padding: 0.55rem 0.7rem;
+      background: #000;
+      color: var(--cpc-cyan);
+      border: 3px solid var(--cpc-amber);
+      box-shadow: 4px 4px 0 #000;
+      font-family: var(--term);
+      font-size: 1.1rem;
+      line-height: 1.3;
+      pointer-events: none;
+      opacity: 0;
+      visibility: hidden;
+      transition: opacity 0.12s ease;
+    }
+    #tipBubble.show {
+      opacity: 1;
+      visibility: visible;
+    }
+    #tipBubble .tip-title {
+      display: block;
+      color: var(--cpc-amber);
+      font-family: var(--pixel);
+      font-size: 0.48rem;
+      letter-spacing: 0.05em;
+      margin-bottom: 0.35rem;
+      line-height: 1.5;
+    }
   </style>
 </head>
 <body>
@@ -320,78 +376,150 @@
       </div>
 
       <div class="chrome">
-        <p class="ascii-bar">+-- MODE 1 PANEL -- M4 WiFi -- AY-3-8912 -- LLM MASTER --+</p>
+        <p class="ascii-bar" data-tip-title="PANEL"
+           data-tip="Panel de control en el PC. El Amstrad habla con este servidor por Wi‑Fi (M4).">+-- MODE 1 PANEL -- M4 WiFi -- AY-3-8912 -- LLM MASTER --+</p>
         <div class="grid">
           <section class="panel">
-            <h2>Motor</h2>
-            <div id="statusBox" class="status"><span class="led"></span>Cargando…</div>
-            <label>Modo</label>
-            <select id="mode">
-              <option value="ai">IA (LLM)</option>
-              <option value="mock">Mock (sin IA)</option>
+            <h2 data-tip-title="MOTOR"
+                data-tip="Aqui configuras como habla el maestro de la aventura: IA real, pruebas sin IA, modelo y tono.">Motor</h2>
+            <div id="statusBox" class="status"
+                 data-tip-title="ESTADO"
+                 data-tip="Resumen rapido: si el servidor responde, modo (IA o Mock), modelo activo y cuantos turnos lleva la conversacion (H)."><span class="led"></span>Cargando…</div>
+            <label for="mode" data-tip-title="MODO"
+                   data-tip="IA: el maestro inventa la historia con un modelo de lenguaje. Mock: respuestas fijas para probar conexion sin Ollama ni API.">Modo</label>
+            <select id="mode"
+                    data-tip-title="MODO"
+                    data-tip="IA: el maestro inventa la historia con un modelo de lenguaje. Mock: respuestas fijas para probar conexion sin Ollama ni API.">
+              <option value="ai" data-tip-title="IA" data-tip="Usa un LLM (Ollama u otra API) para narrar cada turno.">IA (LLM)</option>
+              <option value="mock" data-tip-title="MOCK" data-tip="Sin inteligencia artificial: utiles para comprobar que el CPC y el PC se entienden.">Mock (sin IA)</option>
             </select>
-            <label>Proveedor</label>
-            <select id="provider">
-              <option value="ollama">Ollama (API nativa)</option>
-              <option value="openai">API OpenAI-compatible</option>
+            <label for="provider" data-tip-title="PROVEEDOR"
+                   data-tip="Quien genera el texto. Ollama local, o APIs cloud (OpenAI, Claude, Gemini), o cualquier servidor Compatible.">Proveedor</label>
+            <select id="provider"
+                    data-tip-title="PROVEEDOR"
+                    data-tip="Quien genera el texto. Ollama local, o APIs cloud (OpenAI, Claude, Gemini), o cualquier servidor Compatible.">
+              <option value="ollama" data-tip-title="OLLAMA" data-tip="API nativa de Ollama en tu PC (recomendado para la PoC).">Ollama (local)</option>
+              <option value="openai" data-tip-title="OPENAI" data-tip="API oficial de OpenAI (api.openai.com). Necesitas API key.">OpenAI</option>
+              <option value="claude" data-tip-title="CLAUDE" data-tip="API de Anthropic (Claude). Necesitas API key de console.anthropic.com.">Claude (Anthropic)</option>
+              <option value="gemini" data-tip-title="GEMINI" data-tip="API de Google Gemini. Necesitas API key de Google AI Studio. Habla directo con Google.">Gemini (Google)</option>
+              <option value="openai_compat" data-tip-title="COMPATIBLE" data-tip="Cualquier servidor con API tipo /v1/chat/completions (LM Studio, Ollama /v1, proxies…).">Compatible (OpenAI API)</option>
             </select>
             <div class="row">
               <div>
-                <label>Modelo</label>
-                <input id="model" list="modelList" placeholder="llama3.1:8b" />
+                <label for="model" data-tip-title="MODELO"
+                       data-tip="Nombre del cerebro que narra (ej. llama3.1:8b). Debe estar instalado en Ollama o disponible en tu API.">Modelo</label>
+                <input id="model" list="modelList" placeholder="llama3.1:8b"
+                       data-tip-title="MODELO"
+                       data-tip="Nombre del cerebro que narra (ej. llama3.1:8b). Debe estar instalado en Ollama o disponible en tu API." />
                 <datalist id="modelList"></datalist>
               </div>
               <div>
-                <label>Temperatura</label>
-                <input id="temperature" type="number" min="0" max="2" step="0.1" value="0.7" />
+                <label for="temperature" data-tip-title="TEMPERATURA"
+                       data-tip="Creatividad del maestro. Bajo (0–0.4): mas previsible. Medio (0.6–0.8): equilibrado. Alto (1+): mas inventivo e imprevisible.">Temperatura</label>
+                <input id="temperature" type="number" min="0" max="2" step="0.1" value="0.7"
+                       data-tip-title="TEMPERATURA"
+                       data-tip="Creatividad del maestro. Bajo (0–0.4): mas previsible. Medio (0.6–0.8): equilibrado. Alto (1+): mas inventivo e imprevisible." />
               </div>
             </div>
-            <label>URL Ollama chat</label>
-            <input id="ollama_url" placeholder="http://127.0.0.1:11434/api/chat" />
-            <label>Base OpenAI-compatible</label>
-            <input id="openai_base" placeholder="http://127.0.0.1:11434/v1" />
-            <label>API key</label>
-            <input id="api_key" type="password" placeholder="(opcional)" />
-            <label>System prompt</label>
-            <textarea id="system"></textarea>
+            <label for="ollama_url" data-tip-title="URL OLLAMA"
+                   data-tip="Direccion del chat de Ollama. Por defecto suele ser http://127.0.0.1:11434/api/chat">URL Ollama chat</label>
+            <input id="ollama_url" placeholder="http://127.0.0.1:11434/api/chat"
+                   data-tip-title="URL OLLAMA"
+                   data-tip="Direccion del chat de Ollama. Por defecto suele ser http://127.0.0.1:11434/api/chat" />
+            <label for="api_base" data-tip-title="BASE API"
+                   data-tip="URL base del proveedor cloud o compatible (sin el path final de chat). En Ollama se usa sobre todo la URL de chat de arriba.">Base API</label>
+            <input id="api_base" placeholder="https://api.openai.com/v1"
+                   data-tip-title="BASE API"
+                   data-tip="URL base del proveedor cloud o compatible (sin el path final de chat). En Ollama se usa sobre todo la URL de chat de arriba." />
+            <label for="api_key" data-tip-title="API KEY"
+                   data-tip="Clave de OpenAI, Anthropic (Claude) o Google (Gemini). Solo en memoria del servidor; no hace falta con Ollama local.">API key</label>
+            <input id="api_key" type="password" placeholder="(opcional)"
+                   data-tip-title="API KEY"
+                   data-tip="Clave de OpenAI, Anthropic (Claude) o Google (Gemini). Solo en memoria del servidor; no hace falta con Ollama local." />
+            <label for="system" data-tip-title="SYSTEM PROMPT"
+                   data-tip="Instrucciones fijas del maestro: tono, reglas de la aventura y formato. Cambialo con cuidado: afecta a toda la partida.">System prompt</label>
+            <textarea id="system"
+                      data-tip-title="SYSTEM PROMPT"
+                      data-tip="Instrucciones fijas del maestro: tono, reglas de la aventura y formato. Cambialo con cuidado: afecta a toda la partida."></textarea>
             <div class="actions">
-              <button class="primary" id="btnSave">Guardar</button>
-              <button id="btnModels">Modelos</button>
-              <button class="danger" id="btnReset">Nueva</button>
-              <button id="btnRefresh">Refresh</button>
+              <button class="primary" id="btnSave"
+                      data-tip-title="GUARDAR CONFIG"
+                      data-tip="Aplica en el servidor el modo, proveedor, modelo, temperatura, URLs, clave y prompt. Sin esto, los cambios no cuentan.">Guardar</button>
+              <button id="btnModels"
+                      data-tip-title="MODELOS"
+                      data-tip="Con Ollama: lista modelos instalados. Con OpenAI/Claude/Gemini/Compatible: escribe el id del modelo a mano.">Modelos</button>
+              <button class="danger" id="btnReset"
+                      data-tip-title="NUEVA PARTIDA"
+                      data-tip="Borra el estado actual (lugar, inventario, historia) y empieza de cero. No borra los slots guardados.">Nueva</button>
+              <button id="btnRefresh"
+                      data-tip-title="REFRESH"
+                      data-tip="Vuelve a leer del servidor estado, configuracion y lista de partidas guardadas.">Refresh</button>
             </div>
-            <p class="hint">CPC: /ping /turn /reset — Panel: /ui</p>
+            <p class="hint"
+               data-tip-title="RUTAS"
+               data-tip="El Amstrad usa /ping, /turn y /reset. Este panel vive en /ui.">CPC: /ping /turn /reset — Panel: /ui</p>
           </section>
 
           <section class="panel">
-            <h2>Paquete al CPC</h2>
-            <label>Estado partida</label>
-            <pre id="gameState">(vacio)</pre>
-            <label>Partidas (slots 1-3)</label>
-            <pre id="savesBox">(cargando)</pre>
+            <h2 data-tip-title="PAQUETE CPC"
+                data-tip="Lo que ve el Amstrad tras cada turno: texto (T:), sonido (S:) y si la aventura termino (E:). Tambien estado y partidas.">Paquete al CPC</h2>
+            <label data-tip-title="ESTADO PARTIDA"
+                   data-tip="Donde estas, que llevas encima y marcas internas de la historia (puertas abiertas, etc.).">Estado partida</label>
+            <pre id="gameState"
+                 data-tip-title="ESTADO PARTIDA"
+                 data-tip="Donde estas, que llevas encima y marcas internas de la historia (puertas abiertas, etc.).">(vacio)</pre>
+            <label data-tip-title="SLOTS"
+                   data-tip="Tres huecos de guardado en el PC. Puedes usarlos desde aqui o con SAVE/LOAD en el Amstrad.">Partidas (slots 1-3)</label>
+            <pre id="savesBox"
+                 data-tip-title="SLOTS"
+                 data-tip="Tres huecos de guardado en el PC. Puedes usarlos desde aqui o con SAVE/LOAD en el Amstrad.">(cargando)</pre>
             <div class="row">
-              <input id="saveName" placeholder="nombre opcional" />
-              <select id="saveSlot">
+              <input id="saveName" placeholder="nombre opcional"
+                     data-tip-title="NOMBRE PARTIDA"
+                     data-tip="Etiqueta opcional para reconocer el slot (ej. antes del castillo).">
+              <select id="saveSlot"
+                      data-tip-title="ELEGIR SLOT"
+                      data-tip="Elige el hueco 1, 2 o 3 donde guardar o desde el que cargar.">
                 <option value="1">Slot 1</option>
                 <option value="2">Slot 2</option>
                 <option value="3">Slot 3</option>
               </select>
             </div>
             <div class="actions">
-              <button id="btnSaveSlot">Guardar</button>
-              <button id="btnLoadSlot">Cargar</button>
-              <button id="btnListSaves">Listar</button>
+              <button id="btnSaveSlot"
+                      data-tip-title="GUARDAR SLOT"
+                      data-tip="Guarda la partida actual en el slot elegido (con el nombre opcional).">Guardar</button>
+              <button id="btnLoadSlot"
+                      data-tip-title="CARGAR SLOT"
+                      data-tip="Restaura la partida del slot elegido. Sustituye el estado actual del servidor.">Cargar</button>
+              <button id="btnListSaves"
+                      data-tip-title="LISTAR"
+                      data-tip="Actualiza la lista de los tres slots y muestra si estan vacios u ocupados.">Listar</button>
             </div>
-            <label>Jugador</label>
-            <pre id="lastUser">(nada aun)</pre>
-            <label>Respuesta T:/S:/E:</label>
-            <pre id="lastPacket">(nada aun)</pre>
-            <label>Error LLM</label>
-            <pre id="lastError">—</pre>
-            <label>Probar turno</label>
+            <label data-tip-title="ULTIMO JUGADOR"
+                   data-tip="Ultimo mensaje o comando que envio el jugador (desde el CPC o desde Probar turno).">Jugador</label>
+            <pre id="lastUser"
+                 data-tip-title="ULTIMO JUGADOR"
+                 data-tip="Ultimo mensaje o comando que envio el jugador (desde el CPC o desde Probar turno).">(nada aun)</pre>
+            <label data-tip-title="RESPUESTA"
+                   data-tip="Paquete crudo hacia el CPC: T: texto en lineas, S: numero de sonido (0–5), E: 0 sigue / 1 fin de aventura.">Respuesta T:/S:/E:</label>
+            <pre id="lastPacket"
+                 data-tip-title="RESPUESTA"
+                 data-tip="Paquete crudo hacia el CPC: T: texto en lineas, S: numero de sonido (0–5), E: 0 sigue / 1 fin de aventura.">(nada aun)</pre>
+            <label data-tip-title="ERROR LLM"
+                   data-tip="Si la IA falla (Ollama apagado, modelo inexistente, red…), aqui aparece el mensaje de error.">Error LLM</label>
+            <pre id="lastError"
+                 data-tip-title="ERROR LLM"
+                 data-tip="Si la IA falla (Ollama apagado, modelo inexistente, red…), aqui aparece el mensaje de error.">—</pre>
+            <label for="testMsg" data-tip-title="PROBAR TURNO"
+                   data-tip="Simula un turno sin Amstrad: escribe una accion y pulsa Enviar para ver el paquete de respuesta.">Probar turno</label>
             <div class="row">
-              <input id="testMsg" placeholder="miro alrededor" />
-              <button id="btnTest">Enviar</button>
+              <input id="testMsg" placeholder="miro alrededor"
+                     data-tip-title="ACCION DE PRUEBA"
+                     data-tip="Texto como si lo escribieras en el CPC (ej. miro alrededor, abro la puerta).">
+              <button id="btnTest"
+                      data-tip-title="ENVIAR TURNO"
+                      data-tip="Manda la accion al servidor (/turn) y actualiza la respuesta T:/S:/E: y el estado.">Enviar</button>
             </div>
           </section>
         </div>
@@ -399,6 +527,7 @@
     </div>
   </div>
   <div class="toast" id="toast"></div>
+  <div id="tipBubble" role="tooltip" aria-hidden="true"></div>
   <script>
     const $ = (id) => document.getElementById(id);
     function toast(msg) {
@@ -407,6 +536,102 @@
       t.style.display = "block";
       setTimeout(() => t.style.display = "none", 2200);
     }
+
+    /* Popups de ayuda solo al pasar por el ? */
+    (function setupTips() {
+      const bubble = $("tipBubble");
+      let hideTimer = null;
+
+      // Quitar tip de controles (inputs/selects/etc.): la ayuda va solo en el ?
+      const stripTags = new Set(["INPUT", "SELECT", "TEXTAREA", "PRE", "OPTION"]);
+      document.querySelectorAll("[data-tip]").forEach((el) => {
+        if (stripTags.has(el.tagName)) {
+          el.removeAttribute("data-tip");
+          el.removeAttribute("data-tip-title");
+        }
+      });
+
+      // Crear un ? clicable/hover junto a cada concepto
+      document.querySelectorAll("[data-tip]").forEach((el) => {
+        if (el.classList.contains("tip-q")) return;
+        const tip = el.getAttribute("data-tip");
+        const title = el.getAttribute("data-tip-title") || "";
+        el.removeAttribute("data-tip");
+        el.removeAttribute("data-tip-title");
+        const q = document.createElement("span");
+        q.className = "tip-q";
+        q.textContent = "?";
+        q.setAttribute("data-tip", tip);
+        if (title) q.setAttribute("data-tip-title", title);
+        q.setAttribute("tabindex", "0");
+        q.setAttribute("role", "img");
+        q.setAttribute("aria-label", "Ayuda" + (title ? ": " + title : ""));
+        if (el.id === "statusBox" || el.tagName === "BUTTON") {
+          el.insertAdjacentElement("afterend", q);
+        } else {
+          el.appendChild(document.createTextNode(" "));
+          el.appendChild(q);
+        }
+      });
+
+      function hide() {
+        bubble.classList.remove("show");
+        bubble.setAttribute("aria-hidden", "true");
+      }
+      function place(el) {
+        const tip = el.getAttribute("data-tip");
+        if (!tip) return;
+        const title = el.getAttribute("data-tip-title") || "";
+        bubble.innerHTML = (title ? '<span class="tip-title">' + title + "</span>" : "") + tip;
+        bubble.classList.add("show");
+        bubble.setAttribute("aria-hidden", "false");
+        const r = el.getBoundingClientRect();
+        const pad = 10;
+        let left = r.left;
+        let top = r.bottom + 8;
+        bubble.style.left = "0px";
+        bubble.style.top = "0px";
+        const br = bubble.getBoundingClientRect();
+        if (left + br.width > window.innerWidth - pad) {
+          left = Math.max(pad, window.innerWidth - br.width - pad);
+        }
+        if (top + br.height > window.innerHeight - pad) {
+          top = Math.max(pad, r.top - br.height - 8);
+        }
+        bubble.style.left = left + "px";
+        bubble.style.top = top + "px";
+      }
+      function showFor(el) {
+        clearTimeout(hideTimer);
+        place(el);
+      }
+      function scheduleHide() {
+        clearTimeout(hideTimer);
+        hideTimer = setTimeout(hide, 80);
+      }
+      document.addEventListener("mouseover", (e) => {
+        const el = e.target.closest(".tip-q[data-tip]");
+        if (!el) return;
+        showFor(el);
+      });
+      document.addEventListener("mouseout", (e) => {
+        const el = e.target.closest(".tip-q[data-tip]");
+        if (!el) return;
+        const to = e.relatedTarget;
+        if (to && el.contains(to)) return;
+        scheduleHide();
+      });
+      document.addEventListener("focusin", (e) => {
+        const el = e.target.closest(".tip-q[data-tip]");
+        if (el) showFor(el);
+      });
+      document.addEventListener("focusout", (e) => {
+        const el = e.target.closest(".tip-q[data-tip]");
+        if (el) scheduleHide();
+      });
+      window.addEventListener("scroll", hide, true);
+      window.addEventListener("resize", hide);
+    })();
     async function api(path, opts) {
       const r = await fetch(path, opts);
       if (!r.ok) throw new Error(await r.text());
@@ -414,13 +639,44 @@
       if (ct.includes("application/json")) return r.json();
       return r.text();
     }
+    const PROVIDER_PRESETS = {
+      ollama: {
+        model: "llama3.1:8b",
+        ollama_url: "http://127.0.0.1:11434/api/chat",
+        api_base: "",
+      },
+      openai: {
+        model: "gpt-4o-mini",
+        api_base: "https://api.openai.com/v1",
+      },
+      claude: {
+        model: "claude-haiku-4-5",
+        api_base: "https://api.anthropic.com/v1",
+      },
+      gemini: {
+        model: "gemini-2.0-flash",
+        api_base: "https://generativelanguage.googleapis.com/v1beta",
+      },
+      openai_compat: {
+        model: "llama3.1:8b",
+        api_base: "http://127.0.0.1:11434/v1",
+      },
+    };
+    $("provider").addEventListener("change", () => {
+      const p = $("provider").value;
+      const preset = PROVIDER_PRESETS[p];
+      if (!preset) return;
+      if (preset.model) $("model").value = preset.model;
+      if (preset.api_base !== undefined) $("api_base").value = preset.api_base;
+      if (preset.ollama_url) $("ollama_url").value = preset.ollama_url;
+    });
     function fill(cfg, status) {
       $("mode").value = status.mock ? "mock" : "ai";
       $("provider").value = cfg.provider || "ollama";
       $("model").value = cfg.model || "";
       $("temperature").value = cfg.temperature ?? 0.7;
       $("ollama_url").value = cfg.ollama_url || "";
-      $("openai_base").value = cfg.openai_base || "";
+      $("api_base").value = cfg.api_base || cfg.openai_base || "";
       $("system").value = cfg.system || "";
       $("api_key").value = "";
       $("api_key").placeholder = cfg.api_key_set ? "(guardada)" : "(opcional)";
@@ -460,11 +716,17 @@
         model: $("model").value,
         temperature: Number($("temperature").value),
         ollama_url: $("ollama_url").value,
-        openai_base: $("openai_base").value,
+        api_base: $("api_base").value,
+        openai_base: $("api_base").value,
         system: $("system").value,
       };
       const key = $("api_key").value;
       if (key) body.api_key = key;
+      const needsKey = ["openai", "claude", "gemini"].includes(body.provider);
+      if (needsKey && !key && $("api_key").placeholder !== "(guardada)") {
+        toast("PEGA LA API KEY");
+        return;
+      }
       await api("/api/config", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -502,6 +764,10 @@
       await refresh();
     };
     $("btnModels").onclick = async () => {
+      if ($("provider").value !== "ollama") {
+        toast("Escribe el modelo a mano");
+        return;
+      }
       const data = await api("/api/models");
       const list = $("modelList");
       list.innerHTML = "";

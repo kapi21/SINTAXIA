@@ -38,7 +38,9 @@ Si alguien te ha dejado el sistema preparado, salta a [Empezar a jugar](#empezar
    - Deja esa ventana abierta mientras juegas.  
 4. (Opcional) Abre el navegador en:  
    **http://127.0.0.1:8080/ui**  
-   Ahi veras un panel con pinta de Amstrad. Deja **Modo = IA** si quieres la aventura con inteligencia artificial.
+   Ahi veras un panel con pinta de Amstrad. Deja **Modo = IA** si quieres la aventura con inteligencia artificial.  
+   Si pasas el raton por el **?** junto a cada opcion, aparece una ventanita explicando que hace.  
+   Puedes elegir **Ollama** (local) o APIs de **OpenAI**, **Claude** o **Gemini** (necesitas su clave).
 
 Si no tienes IA instalada, en el panel puedes poner **Modo = Mock**: el juego responde de forma sencilla para probar que todo conecta.
 
@@ -51,7 +53,8 @@ Si no tienes IA instalada, en el panel puedes poner **Modo = Mock**: el juego re
    Debe mostrar que hay red e IP.  
 3. Si te han dicho que cambies la IP del PC en el juego, pide ayuda a quien te lo instalo (esta al principio del programa `aventura.bas`).  
 4. Arranca el juego:  
-   `RUN"aventura`
+   `RUN"aventura`  
+   (Copia tambien `TITLE.SCR` a la microSD si quieres la pantalla grafica de titulo.)
 
 ---
 
@@ -59,10 +62,11 @@ Si no tienes IA instalada, en el panel puedes poner **Modo = Mock**: el juego re
 
 1. PC: `run_server.bat` en marcha.  
 2. CPC: `RUN"aventura`  
-3. En la pantalla de inicio deberia salir algo como **SERVIDOR ACTIVO**.  
-4. Escribe, por ejemplo:  
+3. Si aparece el titulo (castillo/puerta), pulsa **ESPACIO**.  
+4. En la pantalla de inicio deberia salir algo como **SERVIDOR ACTIVO**.  
+5. Escribe, por ejemplo:  
    `miro alrededor`  
-5. Espera un momento (“Esperando al maestro…”) y lee la respuesta.
+6. Espera un momento (“Esperando al maestro…”) y lee la respuesta.
 
 Si sale **SERVIDOR NO ACTIVO**:
 

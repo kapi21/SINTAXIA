@@ -347,14 +347,26 @@ def main() -> None:
     parser.add_argument("--mock", action="store_true", help="Arrancar en modo mock")
     parser.add_argument(
         "--provider",
-        choices=("ollama", "openai"),
+        choices=("ollama", "openai", "claude", "gemini", "openai_compat"),
         default="ollama",
         help="Proveedor LLM inicial",
     )
+    parser.add_argument("--api-base", default="", help="Base URL API (OpenAI/Claude/Gemini/compat)")
+    parser.add_argument("--api-key", default="", help="API key (memoria; no se guarda a disco)")
     args = parser.parse_args()
 
     _use_mock = args.mock
     _ai = AdventureAI(model=args.model, provider=args.provider)
+    if args.api_base:
+        _ai.api_base = args.api_base.rstrip("/")
+    else:
+        from llm_providers import DEFAULTS as _PROV_DEFAULTS
+
+        preset = (_PROV_DEFAULTS.get(args.provider) or {}).get("api_base") or ""
+        if preset:
+            _ai.api_base = preset.rstrip("/")
+    if args.api_key:
+        _ai.api_key = args.api_key
     if _use_mock:
         print("Modo MOCK (sin LLM)")
     else:

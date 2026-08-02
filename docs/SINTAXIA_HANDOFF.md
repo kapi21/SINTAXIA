@@ -1,21 +1,30 @@
 # SINTAXIA — Handoff de sesión
 
-**Fecha:** 2026-08-02 (actualizado tarde)  
+**Fecha:** 2026-08-02 (tarde / cierre sesión)  
 **Workspace local:** `C:\@MIS PROYECTOS\M4`  
 **Repo GitHub:** https://github.com/kapi21/SINTAXIA  
-**Branch / HEAD:** `main` @ `f23d533` (hero en README)
+**Branch:** `main`
 
 ---
 
 ## Estado
 
 - **Proyecto:** SINTAXIA — motor de aventura conversacional con IA para Amstrad CPC + M4 Board
-- **Hecho:** PoC completo y publicado: cliente BASIC, servidor HTTP, Ollama/API, panel web estilo CPC, inventario/estado, save/load slots 1-3, README con arte hero
+- **Hecho:**
+  - Cliente BASIC: splash `TITLE.SCR` (espacio) + intro/ping + AY + INV/SAVE/LOAD
+  - Servidor HTTP + panel `/ui` (estilo CPC, tooltips solo en `?`)
+  - LLM multi-proveedor: **Ollama, OpenAI, Claude, Gemini, Compatible**
+  - Inventario/estado, slots save 1–3, guías `MANUAL` + `GUIA_JUGADOR`
 - **Pendiente:**
-  - Pulir coherencia LLM con flags/lugares
+  - Probar splash en CPC real (copiar `TITLE.SCR` + `aventura.bas` a la SD)
+  - Cuota/billing Gemini API (AI Studio ≠ suscripción Gemini Pro chat)
+  - Pulir coherencia LLM con I/L/F
   - Cliente TCP Z80 (largo plazo)
-- **Cómo verificar:** `run_server.bat` → http://127.0.0.1:8080/ui → CPC `RUN"aventura`
-- **Riesgos:** IP PC hardcodeada en BASIC (`P$`); Ollama en `:11434`; firewall 8080; `.bas` ASCII puede necesitar tokenizar; tope texto CPC ~6×40 / 255 chars
+- **Cómo verificar:**
+  - PC: `run_server.bat` → http://127.0.0.1:8080/ui
+  - Regenerar título: `python tools/make_title_scr.py`
+  - CPC: SD con `aventura.bas` + `TITLE.SCR` → `RUN"aventura` → ESPACIO
+- **Riesgos:** `P$` IP fija en BASIC; Gemini free tier puede dar 429 (`limit: 0`); reiniciar servidor tras cambios Python; `.bas` ASCII puede necesitar tokenizar; tope texto CPC ~6×40 / 255 chars
 
 ---
 
@@ -24,7 +33,7 @@
 Conectar un **Amstrad CPC real** a un LLM vía **M4 Board (Wi‑Fi)**:
 
 1. Jugador escribe en lenguaje natural en el CPC  
-2. Servidor Python en el PC → Ollama / API OpenAI-compatible / mock  
+2. Servidor Python en el PC → Ollama / OpenAI / Claude / Gemini / Compatible / mock  
 3. Respuesta empaquetada CPC-safe (40 cols, ASCII, CRLF)  
 4. BASIC imprime texto + `SOUND`/`ENV`/`ENT` en **AY‑3‑8912**  
 5. Estado (inventario, lugar, flags) en el PC; comando `INV` en el CPC  
@@ -51,7 +60,8 @@ Cambiar IP del PC → variable `P$` al inicio de `client/aventura.bas`.
 ```text
 CPC + M4                         PC
 client/aventura.bas              server/server.py :8080
-  intro + ping /ui ◄───────────  web/ui.html (panel CPC-style)
+  TITLE.SCR (splash)             web/ui.html + hero.png
+  intro + ping                   llm_providers.py (defaults/mapeo)
   INPUT ──HTTP GET /turn──────►  ai_adventure.py → LLM
   |HTTPGET → RESP.TXT            game_state.py (I/L/F)
   parse T:/S:/E:                 protocol.py + cpc_text.py
@@ -59,13 +69,14 @@ client/aventura.bas              server/server.py :8080
   INV / NUEVA / SAVE n / LOAD n / SAVES / AYUDA / QUIT
 ```
 
+**Proveedores LLM:** `ollama` | `openai` | `claude` | `gemini` | `openai_compat`  
 **Transporte:** HTTP (`|HTTPGET`). TCP/ASM = futuro.
 
 ### Endpoints
 
 | Ruta | Uso |
 |------|-----|
-| `GET /ui` | Panel web (estilo CPC + hero.png) |
+| `GET /ui` | Panel web (estilo CPC + hero.png + tooltips `?`) |
 | `GET /assets/hero.png` | Arte del panel / README |
 | `GET /api/saves` | Lista slots 1-3 |
 | `POST /api/save` | Guarda slot `{slot, name?}` |
@@ -73,10 +84,12 @@ client/aventura.bas              server/server.py :8080
 | `GET /ping` | Salud (CPC intro) |
 | `GET /turn?msg=` | Turno / `inventario` |
 | `GET /reset` | Nueva partida |
-| `GET/POST /api/config` | Config LLM + estado |
+| `GET/POST /api/config` | Config LLM + estado (`provider`, `api_base`, key en memoria) |
 | `GET /api/status` | mock / ok |
 | `POST /api/reset` | Reset desde panel |
 | `GET /api/models` | Lista modelos Ollama |
+
+CLI: `python server.py --provider gemini --api-key ... --api-base ...`
 
 ---
 
@@ -93,7 +106,7 @@ F:puerta_abierta=1   (opcional)
 
 - Al CPC solo importan **T/S/E** (CRLF).  
 - **I/L/F** los consume `game_state.py` y se quitan antes del display CPC.  
-- Topes: **40** cols, **máx. 6** líneas, cuerpo `T:` ≤ **250** (límite string CPC ~255). Corte → `...`
+- Topes: **40** cols, **máx. 6** líneas, cuerpo `T:` ≤ **250**. Corte → `...`
 
 **S:** 0 neutro · 1 peligro · 2 ambiente · 3 objeto · 4 combate · 5 victoria  
 
@@ -103,45 +116,46 @@ F:puerta_abierta=1   (opcional)
 
 ```text
 M4/
-  README.md                 # incluye hero centrado
+  README.md
   run_server.bat
   .gitignore
-  client/aventura.bas       # MODE 1, intro, ping, AY, INV/NUEVA
+  client/
+    aventura.bas            # MODE 1, splash, intro, ping, AY, comandos
+    TITLE.SCR               # dump pantalla titulo (16 KB)
+  tools/
+    make_title_scr.py       # hero.png → TITLE.SCR (+ preview local)
   server/
     server.py
     ai_adventure.py
+    llm_providers.py        # defaults + mapeo Claude/Gemini
     game_state.py
-    save_game.py            # slots JSON en server/saves/
+    save_game.py
     protocol.py
     cpc_text.py
     prompts/master.txt
     web/ui.html
     web/hero.png
-    saves/.gitkeep          # *.json gitignored
+    saves/.gitkeep
   tests/
+    test_llm_providers.py
+    …
   docs/
     CARGA.md
+    MANUAL.md
+    GUIA_JUGADOR.md
     SINTAXIA_HANDOFF.md     ← este archivo
-    superpowers/plans/…     # gitignored
-  archivo/                  # local only (docs M4, fotos, carcasas…)
+  archivo/                  # local only
 ```
-
-Repo público: https://github.com/kapi21/SINTAXIA — layout `client/` + `server/` ya pusheado.
 
 ---
 
 ## Cronología (resumen)
 
-1. M4 en Wi‑Fi `192.168.1.128`  
-2. PoC HTTP mock + BASIC + SOUND  
-3. Fix CRLF (`LINE INPUT` CPC)  
-4. Ollama + reempaquetado  
-5. Repo SINTAXIA; reorg carpetas; panel `/ui` estilo CPC + hero  
-6. Topes de texto 6 líneas / 250 chars  
-7. Inventario/estado (`INV`, panel, meta I/L/F)  
-8. Hero en README GitHub (`f23d533`)  
-
-**Commits recientes:** `671d037` panel/layout · `d14a2c0` estado · `f23d533` README art  
+1. M4 en Wi‑Fi + PoC HTTP mock + BASIC + SOUND + fix CRLF  
+2. Ollama + panel `/ui` + hero + inventario/saves  
+3. Guías jugador + manual técnico  
+4. Multi-proveedor LLM (OpenAI / Claude / Gemini / Compatible) + tooltips UI  
+5. Splash CPC `TITLE.SCR` desde hero + script `make_title_scr.py`  
 
 ---
 
@@ -152,15 +166,17 @@ Repo público: https://github.com/kapi21/SINTAXIA — layout `client/` + `server
 cd "C:\@MIS PROYECTOS\M4"
 .\run_server.bat
 # Panel: http://127.0.0.1:8080/ui
-# LAN:   http://192.168.1.4:8080/ui
+# Regenerar titulo: python tools/make_title_scr.py
 ```
 
+**Gemini API key:** https://aistudio.google.com/app/apikey (no es la suscripción Gemini Pro del chat). Facturación del proyecto Cloud si sale 429 `limit: 0`.
+
 ### CPC
-1. Copiar `client/aventura.bas` a la SD (tokenizar si hace falta)  
-2. `|NETSTAT` → `RUN"aventura`  
+1. Copiar `client/aventura.bas` **y** `client/TITLE.SCR` a la SD  
+2. `|NETSTAT` → `RUN"aventura` → **ESPACIO** en el titulo  
 3. Comandos: `AYUDA`, `NUEVA`, `INV`, `SAVE 1`, `LOAD 1`, `SAVES`, `QUIT`  
 
-Ver también `docs/MANUAL.md` (manual completo) y `docs/CARGA.md`.
+Ver `docs/MANUAL.md`, `docs/GUIA_JUGADOR.md`, `docs/CARGA.md`.
 
 ---
 
@@ -172,15 +188,17 @@ Ver también `docs/MANUAL.md` (manual completo) y `docs/CARGA.md`.
 - Sonido: código en PC, tabla AY en BASIC  
 - RSX con variable (`|HTTPGET,@A$`)  
 - API keys solo en memoria del panel (no commitear secretos)  
-- No subir `archivo/` ni `*- copia.png`  
+- No subir `archivo/`, `server/saves/*.json`, ni `*- copia.png`  
+- Tras cambiar Python: **reiniciar** `server.py` (el HTML `/ui` se lee fresco del disco)
 
 ---
 
 ## Próximos pasos sugeridos
 
-1. Mejorar que el LLM use I/L/F de forma fiable  
-2. Más atmósfera BASIC (ventanas, música corta)  
-3. (Largo) cliente net ASM M4  
+1. Validar splash + partida en hardware real  
+2. Mejorar que el LLM use I/L/F de forma fiable  
+3. Más atmósfera BASIC (ventanas, música corta)  
+4. (Largo) cliente net ASM M4  
 
 ---
 
@@ -188,17 +206,19 @@ Ver también `docs/MANUAL.md` (manual completo) y `docs/CARGA.md`.
 
 | Archivo | Rol |
 |---------|-----|
-| `server/server.py` | HTTP CPC + API panel |
-| `server/ai_adventure.py` | LLM Ollama/OpenAI + historial |
+| `server/server.py` | HTTP CPC + API panel + CLI providers |
+| `server/ai_adventure.py` | LLM multi-provider + historial |
+| `server/llm_providers.py` | Defaults, URLs, mapeo Claude/Gemini |
 | `server/game_state.py` | Inventario, lugar, flags |
 | `server/save_game.py` | Persistencia slots 1-3 |
 | `server/protocol.py` | Paquete T/S/E + topes |
 | `server/web/ui.html` | Panel visual CPC |
-| `server/web/hero.png` | Arte panel + README |
+| `server/web/hero.png` | Arte panel + fuente del splash |
 | `client/aventura.bas` | Cliente real |
-| `README.md` | Doc pública con banner |
-| `docs/MANUAL.md` | Manual tecnico / instalacion detallada |
-| `docs/GUIA_JUGADOR.md` | Guia sencilla para el jugador |
+| `client/TITLE.SCR` | Pantalla titulo MODE 1 |
+| `tools/make_title_scr.py` | Genera TITLE.SCR |
+| `docs/MANUAL.md` | Manual tecnico |
+| `docs/GUIA_JUGADOR.md` | Guia sencilla |
 | `docs/CARGA.md` | Carga en hardware |
 
 ---

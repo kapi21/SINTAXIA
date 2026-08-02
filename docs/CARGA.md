@@ -18,18 +18,28 @@ Invoke-WebRequest -Uri "http://192.168.1.4:8080/turn?msg=miro+la+cueva" -UseBasi
 ```
 
 ## Pasar el BASIC a la microSD
-1. Copia `client/aventura.bas` a la raiz (o carpeta) de la microSD de la M4.
+1. Copia a la microSD de la M4:
+   - `client/aventura.bas`
+   - `client/TITLE.SCR` (pantalla de titulo; opcional pero recomendado)
 2. Si `RUN"aventura` no carga (fichero ASCII sin cabecera AMSDOS):
    - Abre WinAPE/CPCemu, pega el listado, `SAVE"aventura`
    - Copia el `.bas` generado a la SD
    - O teclea el listado en el CPC y `SAVE"aventura`
 3. Alternativa M4 Web UI: `http://192.168.1.128` → subir fichero.
 
+### Regenerar TITLE.SCR (PC)
+Si cambia el arte `server/web/hero.png`:
+```powershell
+python tools/make_title_scr.py
+```
+Genera `client/TITLE.SCR` y un preview `client/title_preview.png`.
+
 ## En el CPC
 ```
 |NETSTAT
 RUN"aventura
 ```
+Primero veras el titulo grafico: pulsa **ESPACIO**. Luego la intro y el ping al servidor.  
 Prueba mensajes: `miro la cueva`, `cojo la espada`, `atacar`, `tesoro`, `QUIT`
 
 ## Si falla la red

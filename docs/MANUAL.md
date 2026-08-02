@@ -39,7 +39,7 @@ El CPC se encarga de:
 
 El PC se encarga de:
 
-- Hablar con **Ollama**, una **API OpenAI-compatible**, o un modo **Mock** de prueba
+- Hablar con **Ollama**, **OpenAI**, **Claude**, **Gemini**, una **API OpenAI-compatible**, o un modo **Mock** de prueba
 - Empaquetar la respuesta para el CPC
 - Guardar inventario, flags, lugar e historial corto
 - Ofrecer un **panel web** de configuracion estilo CPC
@@ -231,7 +231,10 @@ Orden recomendado:
 | `run_server.bat` | IA con Ollama, modelo por defecto |
 | `run_server.bat --mock` | Sin LLM; respuestas por palabras clave |
 | `run_server.bat --model llama3.1:8b` | Elige modelo Ollama |
-| `run_server.bat --provider openai` | Arranca preparado para API compatible |
+| `run_server.bat --provider openai` | OpenAI oficial (`api.openai.com`; usa `--api-key`) |
+| `run_server.bat --provider openai_compat` | API compatible (LM Studio, Ollama `/v1`, etc.) |
+| `run_server.bat --provider claude` | Anthropic Claude (requiere `--api-key`) |
+| `run_server.bat --provider gemini` | Google Gemini (requiere `--api-key`) |
 
 Desde PowerShell:
 
@@ -257,16 +260,19 @@ El panel imita un monitor CPC (borde azul, tipografia pixel, arte hero).
 | **Estado (READY…)** | Indica si el servidor responde, modo actual (MOCK / OLLAMA / OPENAI), modelo e historial corto (`H`). |
 | **Modo → IA (LLM)** | Usa el proveedor y modelo configurados. |
 | **Modo → Mock (sin IA)** | No llama al LLM. Respuestas fijas si detecta palabras (`cueva`, `espada`, `atacar`, `tesoro`…). Ideal para probar red y sonido. |
-| **Proveedor → Ollama** | API nativa de Ollama (`/api/chat`). |
-| **Proveedor → API OpenAI-compatible** | LM Studio, Groq, OpenAI, etc. Usa la *Base* + API key. |
-| **Modelo** | Nombre del modelo (`llama3.1:8b`, `gpt-4o-mini`…). Con **Modelos** se rellena la lista desde Ollama. |
+| **Proveedor → Ollama (local)** | API nativa de Ollama (`/api/chat`). |
+| **Proveedor → OpenAI** | API oficial `https://api.openai.com/v1` + API key. |
+| **Proveedor → Claude** | Anthropic Messages API + API key (`x-api-key`). |
+| **Proveedor → Gemini** | Google Generative Language + API key (`x-goog-api-key`). Habla directo con Gemini. |
+| **Proveedor → Compatible** | Cualquier servidor tipo OpenAI (`/v1/chat/completions`: LM Studio, Ollama `/v1`, proxies…). |
+| **Modelo** | Id del modelo (`llama3.1:8b`, `gpt-4o-mini`, `claude-haiku-4-5`, `gemini-2.0-flash`…). **Modelos** solo lista desde Ollama. |
 | **Temperatura** | 0.0–2.0. Bajo = mas predecible; alto = mas inventivo (y a veces mas caotico). |
 | **URL Ollama chat** | Por defecto `http://127.0.0.1:11434/api/chat`. Cambiala solo si Ollama esta en otra maquina/puerto. |
-| **Base OpenAI-compatible** | Ej. `http://127.0.0.1:11434/v1` (Ollama compat), `http://127.0.0.1:1234/v1` (LM Studio), `https://api.openai.com/v1`. |
-| **API key** | Token Bearer para APIs que lo exijan. Se guarda **en memoria** del servidor (no se escribe en el repo). Deja vacio si no hace falta. |
+| **Base API** | URL base del proveedor cloud o compatible. Al cambiar proveedor el panel rellena un valor tipico. |
+| **API key** | Clave OpenAI / Anthropic / Google. Solo en **memoria** del servidor. No hace falta con Ollama local. |
 | **System prompt** | Instrucciones del Master (formato `T:/S:/E:`, limites de texto, metadatos `I:/L:/F:`…). Puedes editarlo y pulsar **Guardar**. |
 | **Guardar** | Aplica en el servidor la config del formulario (modo, proveedor, modelo, temperatura, URLs, prompt, key si la escribiste). |
-| **Modelos** | Consulta Ollama y rellena el desplegable de modelos. |
+| **Modelos** | Solo con Ollama: consulta `/api/tags` y rellena el desplegable. En cloud: escribe el modelo a mano. |
 | **Nueva** | Reinicia historial + inventario/lugar/flags (nueva partida). Equivale a `/reset`. |
 | **Refresh** | Recarga estado mostrado sin cambiar config. |
 

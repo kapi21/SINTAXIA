@@ -1,16 +1,30 @@
-"""Cliente LLM (Ollama / API OpenAI-compatible) + empaquetado CPC."""
+"""Cliente LLM (Ollama, OpenAI, Claude, Gemini, OpenAI-compatible) + empaquetado CPC."""
 
 from __future__ import annotations
 
 import json
 import re
 import urllib.error
+import urllib.parse
 import urllib.request
 from pathlib import Path
 from typing import Any
 
 from cpc_text import normalize_cpc, wrap_lines
 from game_state import GameState
+from llm_providers import (
+    ANTHROPIC_VERSION,
+    DEFAULTS,
+    PROVIDERS,
+    build_claude_payload,
+    build_gemini_payload,
+    claude_url,
+    extract_claude_text,
+    extract_gemini_text,
+    extract_openai_text,
+    gemini_url,
+    openai_chat_url,
+)
 from protocol import CPC_MAX_LINES, CPC_WIDTH, build_packet, packet_from_text, parse_packet
 
 ROOT = Path(__file__).resolve().parent
@@ -100,15 +114,15 @@ class AdventureAI:
         model: str = DEFAULT_MODEL,
         provider: str = "ollama",
         ollama_url: str = DEFAULT_OLLAMA_CHAT,
-        openai_base: str = DEFAULT_OPENAI_BASE,
+        api_base: str = DEFAULT_OPENAI_BASE,
         api_key: str = "",
         temperature: float = 0.7,
         system: str | None = None,
     ) -> None:
         self.model = model
-        self.provider = provider  # ollama | openai
+        self.provider = provider if provider in PROVIDERS else "ollama"
         self.ollama_url = ollama_url
-        self.openai_base = openai_base.rstrip("/")
+        self.api_base = api_base.rstrip("/")
         self.api_key = api_key
         self.temperature = temperature
         self.system = system if system is not None else load_system_prompt()
@@ -167,7 +181,8 @@ class AdventureAI:
             "provider": self.provider,
             "model": self.model,
             "ollama_url": self.ollama_url,
-            "openai_base": self.openai_base,
+            "api_base": self.api_base,
+            "openai_base": self.api_base,
             "api_key_set": bool(self.api_key),
             "temperature": self.temperature,
             "system": self.system,
@@ -179,14 +194,28 @@ class AdventureAI:
         }
 
     def apply_config(self, data: dict[str, Any]) -> None:
-        if "provider" in data and data["provider"] in ("ollama", "openai"):
+        if "provider" in data and data["provider"] in PROVIDERS:
             self.provider = data["provider"]
         if "model" in data and str(data["model"]).strip():
             self.model = str(data["model"]).strip()
         if "ollama_url" in data and str(data["ollama_url"]).strip():
             self.ollama_url = str(data["ollama_url"]).strip()
-        if "openai_base" in data and str(data["openai_base"]).strip():
-            self.openai_base = str(data["openai_base"]).strip().rstrip("/")
+        base_set = False
+        for key in ("api_base", "openai_base"):
+            if key not in data:
+                continue
+            raw = str(data[key]).strip()
+            if raw:
+                self.api_base = raw.rstrip("/")
+                base_set = True
+                break
+            # Cadena vacia explicita (p. ej. Ollama): limpiar base
+            self.api_base = ""
+            base_set = True
+            break
+        if not base_set and "provider" in data and data["provider"] in PROVIDERS:
+            preset_base = DEFAULTS.get(self.provider, {}).get("api_base") or ""
+            self.api_base = str(preset_base).rstrip("/") if preset_base else ""
         if "api_key" in data:
             # cadena vacia = no tocar; " " especial? None clear
             key = data["api_key"]
@@ -218,8 +247,19 @@ class AdventureAI:
             headers=headers,
             method="POST",
         )
-        with urllib.request.urlopen(req, timeout=timeout) as resp:
-            return json.loads(resp.read().decode("utf-8"))
+        try:
+            with urllib.request.urlopen(req, timeout=timeout) as resp:
+                return json.loads(resp.read().decode("utf-8"))
+        except urllib.error.HTTPError as exc:
+            detail = ""
+            try:
+                detail = exc.read().decode("utf-8", errors="replace")[:400]
+            except Exception:
+                detail = ""
+            msg = f"HTTP {exc.code} {exc.reason}"
+            if detail:
+                msg += f": {detail}"
+            raise RuntimeError(msg) from exc
 
     def _chat_ollama(self, user_msg: str, timeout: float = 120.0) -> str:
         payload = {
@@ -239,8 +279,7 @@ class AdventureAI:
         )
         return data["message"]["content"]
 
-    def _chat_openai(self, user_msg: str, timeout: float = 120.0) -> str:
-        url = f"{self.openai_base}/chat/completions"
+    def _chat_openai_compat(self, user_msg: str, timeout: float = 120.0) -> str:
         payload = {
             "model": self.model,
             "messages": self._messages(user_msg),
@@ -250,12 +289,51 @@ class AdventureAI:
         headers = {"Content-Type": "application/json"}
         if self.api_key:
             headers["Authorization"] = f"Bearer {self.api_key}"
+        data = self._post_json(
+            openai_chat_url(self.api_base), payload, headers, timeout
+        )
+        return extract_openai_text(data)
+
+    def _chat_claude(self, user_msg: str, timeout: float = 120.0) -> str:
+        messages = self._messages(user_msg)
+        system = messages[0]["content"] if messages and messages[0]["role"] == "system" else self.system
+        payload = build_claude_payload(
+            self.model, system, messages, self.temperature, 220
+        )
+        headers = {
+            "Content-Type": "application/json",
+            "x-api-key": self.api_key,
+            "anthropic-version": ANTHROPIC_VERSION,
+        }
+        data = self._post_json(claude_url(self.api_base), payload, headers, timeout)
+        return extract_claude_text(data)
+
+    def _chat_gemini(self, user_msg: str, timeout: float = 120.0) -> str:
+        if not self.api_key.strip():
+            raise RuntimeError("Falta API key de Gemini. Pegala en el panel y pulsa Guardar.")
+        messages = self._messages(user_msg)
+        system = messages[0]["content"] if messages and messages[0]["role"] == "system" else self.system
+        payload = build_gemini_payload(system, messages, self.temperature, 220)
+        url = gemini_url(self.api_base, self.model)
+        # Google acepta ?key= (mas compatible) y header x-goog-api-key
+        url = f"{url}?key={urllib.parse.quote(self.api_key, safe='')}"
+        headers = {
+            "Content-Type": "application/json",
+            "x-goog-api-key": self.api_key,
+        }
         data = self._post_json(url, payload, headers, timeout)
-        return data["choices"][0]["message"]["content"]
+        text = extract_gemini_text(data)
+        if not text.strip():
+            raise RuntimeError(f"Gemini respondio vacio: {json.dumps(data)[:300]}")
+        return text
 
     def _chat(self, user_msg: str, timeout: float = 120.0) -> str:
-        if self.provider == "openai":
-            return self._chat_openai(user_msg, timeout)
+        if self.provider in ("openai", "openai_compat"):
+            return self._chat_openai_compat(user_msg, timeout)
+        if self.provider == "claude":
+            return self._chat_claude(user_msg, timeout)
+        if self.provider == "gemini":
+            return self._chat_gemini(user_msg, timeout)
         return self._chat_ollama(user_msg, timeout)
 
     def inventory_packet(self) -> str:
@@ -291,7 +369,16 @@ class AdventureAI:
                 self.history = self.history[-(self.max_history * 2) :]
             self.last_packet = packet
             return packet
-        except (urllib.error.URLError, urllib.error.HTTPError, TimeoutError, KeyError, json.JSONDecodeError, IndexError) as exc:
+        except (
+            urllib.error.URLError,
+            urllib.error.HTTPError,
+            TimeoutError,
+            KeyError,
+            json.JSONDecodeError,
+            IndexError,
+            RuntimeError,
+            ValueError,
+        ) as exc:
             self.last_error = str(exc)
             print(f"LLM error: {exc}")
             packet = packet_from_text(
