@@ -20,10 +20,12 @@
   - **FIX:** Servidor ya no se congela al hacer un turno (lock LLM separado)
   - **FIX:** Ollama modelos: errores reales visibles en panel (antes fallaba en silencio)
   - **NUEVO:** Cliente BASIC AAA (`client/aventura.bas`): efecto typewriter con audio AY, tinta dinámicas según tono (`PEN` por `S:`), animación pensando, paginación `[ESPACIO]`, destello CRT, repetición `!` y modo debug `D`
+  - **FIX:** Err 24 (EOF) al leer servidor solucionado restaurando `LINE INPUT #9`.
+  - **FIX:** Carga de imagen `TITLE.SCR` temporalmente eliminada del código porque bloqueaba el juego.
   - Inventario/estado, slots save 1–3, guías `MANUAL` + `GUIA_JUGADOR`
   - Licencia MIT, `hero - copia.png` eliminado
-- **Pendiente:**
-  - Probar splash en CPC real (copiar `TITLE.SCR` + `aventura.bas` a la SD)
+- **Pendiente / Problemas conocidos:**
+  - **BUG CRÍTICO EN CPC:** El cliente (`aventura.bas`) carga bien en el CPC y hace el ping inicial al servidor con éxito, pero después "no inicia", se queda bloqueado y no entra en el bucle del juego. (Se quitó el splash pero el cuelgue persiste).
   - Cuota/billing Gemini API (AI Studio ≠ suscripción Gemini Pro chat)
   - Pulir coherencia LLM con I/L/F
   - Cliente TCP Z80 (largo plazo)
