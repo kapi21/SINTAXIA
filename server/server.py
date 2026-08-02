@@ -42,24 +42,38 @@ _last_mock_packet = ""
 _last_mock_user = ""
 
 
+def turn_reply(user_msg: str) -> str:
+    ai = ensure_ai()
+    low = (user_msg or "").strip().lower()
+    if low in ("inventario", "inv", "i", "objetos"):
+        return ai.inventory_packet()
+    if _use_mock or _ai is None:
+        return mock_reply(user_msg)
+    return ai.turn(user_msg)
+
+
 def mock_reply(user_msg: str) -> str:
     global _last_mock_packet, _last_mock_user
+    ai = ensure_ai()
     msg = (user_msg or "").lower()
     _last_mock_user = user_msg
     for keys, text, sound in _MOCK_RULES:
         if any(k in msg for k in keys):
+            if any(k in msg for k in ("espada", "arma", "coger", "agarrar")):
+                if "espada" not in ai.state.inventory:
+                    ai.state.inventory.append("espada")
+            if any(k in msg for k in ("tesoro", "abrir")):
+                ai.state.flags["tesoro"] = True
             packet = packet_from_text(text, sound=sound, error=0)
             _last_mock_packet = packet
+            ai.last_packet = packet
+            ai.last_user = user_msg
             return packet
     packet = packet_from_text(_DEFAULT_TEXT, sound=0, error=0)
     _last_mock_packet = packet
+    ai.last_packet = packet
+    ai.last_user = user_msg
     return packet
-
-
-def turn_reply(user_msg: str) -> str:
-    if _use_mock or _ai is None:
-        return mock_reply(user_msg)
-    return _ai.turn(user_msg)
 
 
 def ensure_ai() -> AdventureAI:

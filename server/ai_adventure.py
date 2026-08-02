@@ -10,6 +10,7 @@ from pathlib import Path
 from typing import Any
 
 from cpc_text import normalize_cpc, wrap_lines
+from game_state import GameState
 from protocol import CPC_MAX_LINES, CPC_WIDTH, build_packet, packet_from_text, parse_packet
 
 ROOT = Path(__file__).resolve().parent
@@ -113,12 +114,14 @@ class AdventureAI:
         self.system = system if system is not None else load_system_prompt()
         self.history: list[dict[str, str]] = []
         self.max_history = 6
+        self.state = GameState()
         self.last_user = ""
         self.last_packet = ""
         self.last_error = ""
 
     def reset(self) -> None:
         self.history.clear()
+        self.state.reset()
         self.last_user = ""
         self.last_packet = ""
         self.last_error = ""
@@ -136,6 +139,7 @@ class AdventureAI:
             "last_user": self.last_user,
             "last_packet": self.last_packet,
             "last_error": self.last_error,
+            "state": self.state.to_dict(),
         }
 
     def apply_config(self, data: dict[str, Any]) -> None:
@@ -165,7 +169,8 @@ class AdventureAI:
             self.system = data["system"]
 
     def _messages(self, user_msg: str) -> list[dict[str, str]]:
-        messages = [{"role": "system", "content": self.system}]
+        system = self.system + "\n\n" + self.state.summary_for_prompt()
+        messages = [{"role": "system", "content": system}]
         messages.extend(self.history[-self.max_history :])
         messages.append({"role": "user", "content": user_msg})
         return messages
@@ -217,12 +222,32 @@ class AdventureAI:
             return self._chat_openai(user_msg, timeout)
         return self._chat_ollama(user_msg, timeout)
 
+    def inventory_packet(self) -> str:
+        if not self.state.inventory:
+            text = "No llevas nada. Las manos vacias."
+            sound = 0
+        else:
+            items = ", ".join(self.state.inventory)
+            text = f"Llevas: {items}."
+            sound = 3
+        packet = packet_from_text(text, sound=sound, error=0)
+        self.last_user = "inventario"
+        self.last_packet = packet
+        return packet
+
     def turn(self, user_msg: str) -> str:
         user_msg = normalize_cpc(user_msg)[:120] or "miro alrededor"
         self.last_user = user_msg
         self.last_error = ""
+
+        # Comando local: inventario / inv
+        low = user_msg.lower().strip()
+        if low in ("inventario", "inv", "i", "objetos"):
+            return self.inventory_packet()
+
         try:
             raw = self._chat(user_msg)
+            raw = self.state.apply_meta_lines(raw)
             packet = repack_llm_text(raw)
             self.history.append({"role": "user", "content": user_msg})
             self.history.append({"role": "assistant", "content": packet.strip()})

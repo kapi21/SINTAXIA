@@ -14,8 +14,9 @@
 - ~~Ambiente visual CPC (intro + ping + paleta + borde)~~ → `client/aventura.bas`
 - ~~Sonidos AY ricos (ENV/ENT)~~ → envolventes 1-5 + ruido en combate
 - ~~Panel web PC (Ollama vs API)~~ → `http://127.0.0.1:8080/ui`
-- Push estructura `client/`/`server/` a GitHub
-- Inventario/estado
+- ~~Push estructura `client/`/`server/` a GitHub~~ → hecho
+- ~~Inventario/estado~~ → `server/game_state.py` + panel + comando `INV`
+- Pulir coherencia LLM con flags/lugares; saves opcionales
 
 - **Cómo verificar:** `run_server.bat` + `curl http://127.0.0.1:8080/ping` + `RUN"aventura` en CPC
 - **Riesgos:** IP PC hardcodeada en BASIC; Ollama debe estar arriba; firewall 8080; `.bas` ASCII puede necesitar tokenizar en emulador

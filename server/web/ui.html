@@ -365,8 +365,10 @@
 
           <section class="panel">
             <h2>Paquete al CPC</h2>
-            <label>Jugador</label>
-            <pre id="lastUser">(nada aun)</pre>
+      <label>Estado partida</label>
+      <pre id="gameState">(vacio)</pre>
+      <label>Jugador</label>
+      <pre id="lastUser">(nada aun)</pre>
             <label>Respuesta T:/S:/E:</label>
             <pre id="lastPacket">(nada aun)</pre>
             <label>Error LLM</label>
@@ -410,6 +412,12 @@
       $("lastUser").textContent = cfg.last_user || "(nada aun)";
       $("lastPacket").textContent = cfg.last_packet || "(nada aun)";
       $("lastError").textContent = cfg.last_error || "—";
+      const st = cfg.state || {};
+      const inv = (st.inventory && st.inventory.length) ? st.inventory.join(", ") : "(vacio)";
+      const flags = st.flags && Object.keys(st.flags).length
+        ? Object.entries(st.flags).map(([k,v]) => k + "=" + (v ? "si" : "no")).join(", ")
+        : "(ninguno)";
+      $("gameState").textContent = "Lugar: " + (st.location || "?") + "\nInventario: " + inv + "\nFlags: " + flags;
       const box = $("statusBox");
       const mode = status.mock ? "MOCK" : (cfg.provider || "ollama").toUpperCase();
       box.innerHTML = '<span class="led"></span>READY · ' + mode + ' · ' + (cfg.model || '-') + ' · H' + (cfg.history_len || 0);

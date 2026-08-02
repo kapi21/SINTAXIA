@@ -101,6 +101,7 @@
 7200 PEN 2:PRINT "Comandos:":PEN 1
 7210 PRINT " AYUDA  - esta ayuda"
 7220 PRINT " NUEVA  - reinicia partida"
+7225 PRINT " INV    - ver inventario"
 7230 PRINT " QUIT   - salir"
 7240 PRINT
 7250 PEN 2:PRINT "Comprobando servidor...":PEN 1
@@ -148,6 +149,7 @@
 7720 PEN 2:PRINT "SINTAXIA - ayuda":PEN 1
 7730 PRINT "Escribe acciones libres:"
 7740 PRINT " miro alrededor, voy al norte..."
+7745 PRINT " INV / inventario - objetos"
 7750 PRINT " AYUDA / NUEVA / QUIT"
 7760 PRINT "Servidor PC: ";P$
 7770 IF OK=1 THEN PRINT "Estado: activo" ELSE PRINT "Estado: dudoso"
