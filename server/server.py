@@ -396,6 +396,19 @@ class AdventureHandler(BaseHTTPRequestHandler):
         self._send_json({"ok": False, "error": "not found"}, 404)
 
 
+def get_lan_ip() -> str:
+    """Devuelve la IP IPv4 local del PC en la LAN (ej. 192.168.1.4)."""
+    try:
+        import socket
+        s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+        s.connect(("8.8.8.8", 80))
+        ip = s.getsockname()[0]
+        s.close()
+        return ip
+    except Exception:
+        return "127.0.0.1"
+
+
 def main() -> None:
     global _ai, _use_mock
 
@@ -432,8 +445,11 @@ def main() -> None:
         print(f"LLM provider={args.provider} model={args.model}")
 
     server = ThreadingHTTPServer((args.host, args.port), AdventureHandler)
-    print(f"Servidor en http://{args.host}:{args.port}/")
-    print(f"Panel web: http://127.0.0.1:{args.port}/ui")
+    lan_ip = get_lan_ip()
+    print(f"Servidor en todas las interfaces (0.0.0.0:{args.port})")
+    print(f"Panel web (PC): http://127.0.0.1:{args.port}/ui")
+    print(f"CPC (Wi-Fi LAN): http://{lan_ip}:{args.port}/ (pon P$=\"{lan_ip}:{args.port}\" en BASIC)")
+
     try:
         server.serve_forever()
     except KeyboardInterrupt:
