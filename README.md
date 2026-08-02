@@ -14,7 +14,8 @@
 
 La IA genera la narrativa en lenguaje natural, el PC la empaqueta para el CPC (40 columnas, ASCII) y el cliente en Locomotive BASIC muestra el texto y dispara efectos en el chip **AY‑3‑8912**.
 
-**Manual completo (instalacion PC/CPC, panel IU, comandos):** [docs/MANUAL.md](docs/MANUAL.md)
+**Manual completo (instalacion PC/CPC, panel IU, comandos):** [docs/MANUAL.md](docs/MANUAL.md)  
+**Guia sencilla para jugar (sin tecnicismos):** [docs/GUIA_JUGADOR.md](docs/GUIA_JUGADOR.md)
 
 ---
 

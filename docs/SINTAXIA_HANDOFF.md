@@ -197,7 +197,8 @@ Ver también `docs/MANUAL.md` (manual completo) y `docs/CARGA.md`.
 | `server/web/hero.png` | Arte panel + README |
 | `client/aventura.bas` | Cliente real |
 | `README.md` | Doc pública con banner |
-| `docs/MANUAL.md` | Manual de usuario completo |
+| `docs/MANUAL.md` | Manual tecnico / instalacion detallada |
+| `docs/GUIA_JUGADOR.md` | Guia sencilla para el jugador |
 | `docs/CARGA.md` | Carga en hardware |
 
 ---
