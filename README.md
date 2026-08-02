@@ -14,6 +14,8 @@
 
 La IA genera la narrativa en lenguaje natural, el PC la empaqueta para el CPC (40 columnas, ASCII) y el cliente en Locomotive BASIC muestra el texto y dispara efectos en el chip **AY‑3‑8912**.
 
+**Manual completo (instalacion PC/CPC, panel IU, comandos):** [docs/MANUAL.md](docs/MANUAL.md)
+
 ---
 
 ## Estructura del proyecto
@@ -116,7 +118,7 @@ curl "http://127.0.0.1:8080/turn?msg=LOAD+1"
 curl http://127.0.0.1:8080/reset
 ```
 
-Más detalle de carga en el CPC: `docs/CARGA.md`.
+Más detalle: **[docs/MANUAL.md](docs/MANUAL.md)** (manual de usuario) y `docs/CARGA.md` (carga rapida en SD).
 
 ---
 

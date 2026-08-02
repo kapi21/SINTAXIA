@@ -160,7 +160,7 @@ cd "C:\@MIS PROYECTOS\M4"
 2. `|NETSTAT` → `RUN"aventura`  
 3. Comandos: `AYUDA`, `NUEVA`, `INV`, `SAVE 1`, `LOAD 1`, `SAVES`, `QUIT`  
 
-Ver también `docs/CARGA.md`.
+Ver también `docs/MANUAL.md` (manual completo) y `docs/CARGA.md`.
 
 ---
 
@@ -197,6 +197,7 @@ Ver también `docs/CARGA.md`.
 | `server/web/hero.png` | Arte panel + README |
 | `client/aventura.bas` | Cliente real |
 | `README.md` | Doc pública con banner |
+| `docs/MANUAL.md` | Manual de usuario completo |
 | `docs/CARGA.md` | Carga en hardware |
 
 ---
