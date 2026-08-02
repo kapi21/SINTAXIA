@@ -122,11 +122,16 @@ def rows_to_preview(rows: list[list[int]]) -> Image.Image:
 
 
 def main() -> None:
-    src_path = ROOT / "imagen" / "splash.png"
-    if not src_path.is_file():
-        src_path = SRC
-    if not src_path.is_file():
-        raise SystemExit(f"No existe imagen de origen en {src_path}")
+    # Preferir arte de imagen/; splash.scr (.SCR con cabecera ~32KB) NO es
+    # un dump MODE 1 seguro para LOAD,&C000 — se genera desde PNG.
+    candidates = [
+        ROOT / "imagen" / "splash2.png",
+        ROOT / "imagen" / "splash.png",
+        SRC,
+    ]
+    src_path = next((p for p in candidates if p.is_file()), None)
+    if src_path is None:
+        raise SystemExit("No existe imagen de origen (imagen/splash*.png o hero.png)")
     print(f"Procesando imagen: {src_path}")
     src = Image.open(src_path).convert("RGB")
     scaled = src.resize((W, H), Image.Resampling.LANCZOS)

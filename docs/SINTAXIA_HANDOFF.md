@@ -1,6 +1,6 @@
 # SINTAXIA — Handoff de sesión
 
-**Fecha:** 2026-08-02 (sesión tarde)  
+**Fecha:** 2026-08-02 (sesión noche)  
 **Workspace local:** `C:\@MIS PROYECTOS\M4`  
 **Repo GitHub:** https://github.com/kapi21/SINTAXIA  
 **Branch:** `main`
@@ -11,29 +11,38 @@
 
 - **Proyecto:** SINTAXIA — motor de aventura conversacional con IA para Amstrad CPC + M4 Board
 - **Hecho:**
-  - Cliente BASIC: splash `TITLE.SCR` (espacio) + intro/ping + AY + INV/SAVE/LOAD
-  - Servidor HTTP + panel `/ui` (estilo CPC, tooltips solo en `?`)
-  - LLM multi-proveedor: **Ollama, OpenAI, Claude, Gemini, Compatible**
-  - **NUEVO:** `/api/models` multi-proveedor — lista modelos de cualquier API
-  - **NUEVO:** Panel UI carga modelos automáticamente al cambiar proveedor o teclear API key
-  - **NUEVO:** Selector de modelos con `<select>` + input manual + datalist
-  - **FIX:** Servidor ya no se congela al hacer un turno (lock LLM separado)
-  - **FIX:** Ollama modelos: errores reales visibles en panel (antes fallaba en silencio)
-  - **NUEVO:** Cliente BASIC AAA (`client/aventura.bas`): efecto typewriter con audio AY, tinta dinámicas según tono (`PEN` por `S:`), animación pensando, paginación `[ESPACIO]`, destello CRT, repetición `!` y modo debug `D`
-  - **FIX:** Err 24 (EOF) al leer servidor solucionado restaurando `LINE INPUT #9`.
-  - **FIX:** Carga de imagen `TITLE.SCR` temporalmente eliminada del código porque bloqueaba el juego.
-  - Inventario/estado, slots save 1–3, guías `MANUAL` + `GUIA_JUGADOR`
-  - Licencia MIT, `hero - copia.png` eliminado
-- **Pendiente / Problemas conocidos:**
-  - **BUG CRÍTICO EN CPC:** El cliente (`aventura.bas`) carga bien en el CPC y hace el ping inicial al servidor con éxito, pero después "no inicia", se queda bloqueado y no entra en el bucle del juego. (Se quitó el splash pero el cuelgue persiste).
+  - Cliente BASIC + servidor multi-LLM + panel `/ui` + saves + guías (base previa)
+  - **FIX:** Cuelgue post-ping — el bucle de `PING.TXT` hacía `GOTO 7560` (saltaba el `IF EOF`); corregido a `GOTO 7550` (como `RESP.TXT`)
+  - **FIX:** Sin paginación `[ESPACIO para continuar]`; el texto de turno se imprime completo
+  - **FIX:** Se filtra/borra el mensaje M4 `downloaded in Xs` (pantalla + líneas del fichero + sufijo en `T$`)
+  - **OK en hardware:** splash gráfico `TITLE.SCR` → ESPACIO → intro/ping → prompt `>`
+  - Splash: `LOAD"TITLE.SCR",&C000`; si falta el fichero, fallback texto + `Err` visible
+  - `client/TITLE.SCR` actual = export **Mode 1 estándar** (ConvImgCPC, ~16 KB + cabecera AMSDOS) — validado en CPC real
+  - `tools/make_title_scr.py` prioriza `imagen/splash2.png` → `splash.png` → hero (alternativa sin ConvImg)
+- **Pendiente:**
   - Cuota/billing Gemini API (AI Studio ≠ suscripción Gemini Pro chat)
   - Pulir coherencia LLM con I/L/F
   - Cliente TCP Z80 (largo plazo)
 - **Cómo verificar:**
   - PC: `run_server.bat` → http://127.0.0.1:8080/ui
-  - Regenerar título: `python tools/make_title_scr.py`
-  - CPC: SD con `aventura.bas` + `TITLE.SCR` → `RUN"aventura` → ESPACIO
+  - Regenerar título (Pillow): `python tools/make_title_scr.py`
+  - CPC: SD con `aventura.bas` + `TITLE.SCR` (misma carpeta) → `RUN"aventura` → ESPACIO → jugar
 - **Riesgos:** `P$` IP fija en BASIC; Gemini free tier puede dar 429 (`limit: 0`); **reiniciar servidor tras cambios Python**; `.bas` ASCII puede necesitar tokenizar; tope texto CPC ~6×40 / 255 chars
+
+---
+
+## Splash / TITLE.SCR (importante)
+
+| Qué | Detalle |
+|-----|---------|
+| En SD | `TITLE.SCR` junto a `aventura.bas` |
+| Válido | Mode **1** estándar (~16384–16512 bytes). Carga `LOAD",&C000` |
+| Inválido | SCR **overscan/fullscreen** ConvImg (~32064 bytes, load `&200`) — no usar con BASIC |
+| ConvImgCPC | Abrir PNG → **Mode 1** → **sin** Fullscreen/Overscan → Save SCR sin compresión |
+| Fallback | Si `LOAD` falla: texto `SINTAXIA` + `(Sin TITLE.SCR Err N)` + Pulsa ESPACIO |
+| Local only | `imagen/ConvImgCpc.exe`, `*.scr` overscan, `1.asm` — no subir al repo |
+
+Fuentes de arte en `imagen/`: `splash.png` (en repo), `splash2.png` (local / opcional).
 
 ---
 
@@ -90,26 +99,21 @@ client/aventura.bas              server/server.py :8080
 | `_state_lock` | config, reset, saves, mock, ping — cualquier ruta rápida | milisegundos |
 | `_turn_lock` | la llamada al LLM en `ai.turn()` | 5–120 s |
 
-`_turn_lock` serializa los turnos LLM pero **no bloquea** el panel web ni otras rutas mientras el CPC espera la respuesta del maestro.
-
 ### Endpoints
 
 | Ruta | Uso |
 |------|-----|
-| `GET /ui` | Panel web (estilo CPC + hero.png + tooltips `?`) |
+| `GET /ui` | Panel web |
 | `GET /assets/hero.png` | Arte del panel / README |
 | `GET /api/saves` | Lista slots 1-3 |
-| `POST /api/save` | Guarda slot `{slot, name?}` |
-| `POST /api/load` | Carga slot `{slot}` |
+| `POST /api/save` / `POST /api/load` | Slots |
 | `GET /ping` | Salud (CPC intro) |
-| `GET /turn?msg=` | Turno / `inventario` |
+| `GET /turn?msg=` | Turno |
 | `GET /reset` | Nueva partida |
-| `GET/POST /api/config` | Config LLM + estado (`provider`, `api_base`, key en memoria) |
+| `GET/POST /api/config` | Config LLM |
 | `GET /api/status` | mock / ok |
 | `POST /api/reset` | Reset desde panel |
-| `GET /api/models?provider=&api_base=&api_key=` | **Lista modelos de cualquier proveedor** |
-
-CLI: `python server.py --provider gemini --api-key ... --api-base ...`
+| `GET /api/models?...` | Lista modelos por proveedor |
 
 ---
 
@@ -119,32 +123,11 @@ CLI: `python server.py --provider gemini --api-key ... --api-base ...`
 T:linea1|linea2|...
 S:2
 E:0
-I:+antorcha          (opcional, solo PC)
-L:pasillo norte      (opcional)
-F:puerta_abierta=1   (opcional)
 ```
 
-- Al CPC solo importan **T/S/E** (CRLF).  
-- **I/L/F** los consume `game_state.py` y se quitan antes del display CPC.  
-- Topes: **40** cols, **máx. 6** líneas, cuerpo `T:` ≤ **250**. Corte → `...`
-
-**S:** 0 neutro · 1 peligro · 2 ambiente · 3 objeto · 4 combate · 5 victoria  
-
----
-
-## Lista de modelos por proveedor (`/api/models`)
-
-`ai_adventure.py → list_provider_models(provider, api_base, api_key, ollama_url)`
-
-| Proveedor | Endpoint consultado | Auth |
-|-----------|---------------------|------|
-| `ollama` | `{host}/api/tags` (derivado de `ollama_url`) | Ninguna |
-| `openai` / `openai_compat` | `{api_base}/models` | `Bearer <key>` |
-| `claude` | `{api_base}/models` + `anthropic-version` | `x-api-key` |
-| `gemini` | `{api_base}/models?key=...` | Query param `key` |
-
-Errores HTTP reales (401, timeout, conexión rechazada) propagan al panel como mensaje legible.  
-Para Ollama, los errores ya no se tragan en silencio — si Ollama está apagado, el panel lo indica.
+- Al CPC solo importan **T/S/E** (CRLF). I/L/F solo en PC.  
+- Topes: **40** cols, **máx. 6** líneas, cuerpo `T:` ≤ **250**.  
+- **S:** 0 neutro · 1 peligro · 2 ambiente · 3 objeto · 4 combate · 5 victoria  
 
 ---
 
@@ -153,47 +136,28 @@ Para Ollama, los errores ya no se tragan en silencio — si Ollama está apagado
 ```text
 M4/
   README.md
-  LICENSE                 ← MIT (nuevo)
+  LICENSE
   run_server.bat
-  .gitignore
   client/
-    aventura.bas            # MODE 1, splash, intro, ping, AY, comandos
-    TITLE.SCR               # dump pantalla titulo (16 KB)
+    aventura.bas            # splash, intro, ping, typewriter, AY, comandos
+    TITLE.SCR               # Mode 1 estándar (ConvImg o make_title_scr.py)
   tools/
-    make_title_scr.py       # hero.png → TITLE.SCR (+ preview local)
-  server/
-    server.py               # _state_lock (rápido) + _turn_lock (LLM)
-    ai_adventure.py         # list_provider_models + AdventureAI
-    llm_providers.py        # defaults + mapeo Claude/Gemini
-    game_state.py
-    save_game.py
-    protocol.py
-    cpc_text.py
-    prompts/master.txt
-    web/ui.html             # selector modelos multi-proveedor
-    web/hero.png
-    saves/.gitkeep
-  tests/
-    test_llm_providers.py
-    …
+    make_title_scr.py       # PNG → TITLE.SCR 16KB (Pillow)
+  server/                   # HTTP + LLM + panel + saves
+  imagen/                   # arte fuente; ConvImg local (no exe en git)
   docs/
-    CARGA.md
-    MANUAL.md
-    GUIA_JUGADOR.md
     SINTAXIA_HANDOFF.md     ← este archivo
-  archivo/                  # local only
+    MANUAL.md / GUIA_JUGADOR.md / CARGA.md
 ```
 
 ---
 
 ## Cronología (resumen)
 
-1. M4 en Wi‑Fi + PoC HTTP mock + BASIC + SOUND + fix CRLF  
-2. Ollama + panel `/ui` + hero + inventario/saves  
-3. Guías jugador + manual técnico  
-4. Multi-proveedor LLM (OpenAI / Claude / Gemini / Compatible) + tooltips UI  
-5. Splash CPC `TITLE.SCR` desde hero + script `make_title_scr.py`  
-6. **Sesión actual:** fixes de calidad + `/api/models` universal + fix concurrencia + selector UI  
+1. PoC HTTP + BASIC + AY + panel + multi-LLM  
+2. Splash TITLE.SCR + script Pillow  
+3. Fixes M4 (URL, LINE INPUT, CRLF, locks, `/api/models`)  
+4. **Sesión actual:** fix EOF ping (`GOTO 7550`), quitar paginación, filtrar `downloaded`, splash Mode 1 validado en hardware  
 
 ---
 
@@ -207,37 +171,35 @@ cd "C:\@MIS PROYECTOS\M4"
 # Regenerar titulo: python tools/make_title_scr.py
 ```
 
-**Gemini API key:** https://aistudio.google.com/app/apikey (no es la suscripción Gemini Pro del chat). Facturación del proyecto Cloud si sale 429 `limit: 0`.
+**Gemini API key:** https://aistudio.google.com/app/apikey (no es la suscripción Gemini Pro del chat).
 
 ### CPC
-1. Copiar `client/aventura.bas` **y** `client/TITLE.SCR` a la SD  
+1. Copiar `client/aventura.bas` **y** `client/TITLE.SCR` a la SD (misma carpeta)  
 2. `|NETSTAT` → `RUN"aventura` → **ESPACIO** en el titulo  
-3. Comandos: `AYUDA`, `NUEVA`, `INV`, `SAVE 1`, `LOAD 1`, `SAVES`, `QUIT`  
-
-Ver `docs/MANUAL.md`, `docs/GUIA_JUGADOR.md`, `docs/CARGA.md`.
+3. Comandos: `AYUDA`, `NUEVA`, `INV`, `SAVE 1`, `LOAD 1`, `SAVES`, `!`, `D`, `QUIT`  
 
 ---
 
 ## Decisiones a respetar
 
 - MODE **1** (no MODE 2) salvo decisión explícita  
+- Splash = SCR **estándar** Mode 1 para `LOAD",&C000` — nunca overscan ConvImg en el cliente BASIC  
 - HTTP, no TCP en el PoC  
 - PC reempaqueta siempre (`repack_llm_text`)  
-- Sonido: código en PC, tabla AY en BASIC  
 - RSX con variable (`|HTTPGET,@A$`)  
 - API keys solo en memoria del panel (no commitear secretos)  
-- No subir `archivo/`, `server/saves/*.json`, ni `*- copia.png`  
-- **Reiniciar** `server.py` tras cualquier cambio Python (el HTML `/ui` se lee fresco del disco)
-- Dos locks: `_state_lock` (ms) para config/saves, `_turn_lock` (s) solo para LLM — no mezclar
+- No subir `archivo/`, `server/saves/*.json`, `ConvImgCpc.exe`, ni `*- copia.png`  
+- **Reiniciar** `server.py` tras cualquier cambio Python  
+- Dos locks: `_state_lock` (ms) vs `_turn_lock` (s) — no mezclar  
+- Tras `|HTTPGET`, bucle de lectura **siempre** vuelve al `IF EOF` (no a `LINE INPUT`)
 
 ---
 
 ## Próximos pasos sugeridos
 
-1. Validar splash + partida en hardware real  
-2. Mejorar que el LLM use I/L/F de forma fiable  
-3. Más atmósfera BASIC (ventanas, música corta)  
-4. (Largo) cliente net ASM M4  
+1. Mejorar que el LLM use I/L/F de forma fiable  
+2. Más atmósfera BASIC (ventanas, música corta)  
+3. (Largo) cliente net ASM M4  
 
 ---
 
@@ -245,20 +207,13 @@ Ver `docs/MANUAL.md`, `docs/GUIA_JUGADOR.md`, `docs/CARGA.md`.
 
 | Archivo | Rol |
 |---------|-----|
-| `server/server.py` | HTTP CPC + API panel + CLI providers + dos locks |
-| `server/ai_adventure.py` | LLM multi-provider + list_provider_models + historial |
-| `server/llm_providers.py` | Defaults, URLs, mapeo Claude/Gemini |
-| `server/game_state.py` | Inventario, lugar, flags |
-| `server/save_game.py` | Persistencia slots 1-3 |
-| `server/protocol.py` | Paquete T/S/E + topes |
-| `server/web/ui.html` | Panel visual CPC + selector modelos multi-proveedor |
-| `server/web/hero.png` | Arte panel + fuente del splash |
-| `client/aventura.bas` | Cliente real |
-| `client/TITLE.SCR` | Pantalla titulo MODE 1 |
-| `tools/make_title_scr.py` | Genera TITLE.SCR |
-| `docs/MANUAL.md` | Manual técnico |
-| `docs/GUIA_JUGADOR.md` | Guia sencilla |
-| `docs/CARGA.md` | Carga en hardware |
+| `client/aventura.bas` | Cliente CPC |
+| `client/TITLE.SCR` | Pantalla titulo Mode 1 |
+| `tools/make_title_scr.py` | Genera TITLE.SCR desde PNG |
+| `server/server.py` | HTTP + locks |
+| `server/ai_adventure.py` | LLM multi-provider |
+| `server/web/ui.html` | Panel |
+| `docs/MANUAL.md` / `GUIA_JUGADOR.md` / `CARGA.md` | Docs |
 | `LICENSE` | MIT |
 
 ---
@@ -268,3 +223,4 @@ Ver `docs/MANUAL.md`, `docs/GUIA_JUGADOR.md`, `docs/CARGA.md`.
 - Rutas con `@`: `-LiteralPath` / comillas  
 - Arranque: `run_server.bat` desde la raíz  
 - Material hardware en `archivo/` (no Git)  
+- ConvImgCPC: herramienta local en `imagen/` (no versionar el `.exe`)  
