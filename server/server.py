@@ -16,6 +16,7 @@ Uso:
 from __future__ import annotations
 
 import argparse
+import atexit
 import json
 import re
 import threading
@@ -31,8 +32,11 @@ from ai_adventure import (
     list_provider_models,
     load_system_prompt,
 )
+from llm_providers import DEFAULTS as PROV_DEFAULTS
+from llm_providers import PROVIDERS
 from protocol import build_packet, packet_from_text, parse_packet
 from save_game import delete_slot, list_slots, load_slot, save_slot, validate_slot
+from settings_store import load_settings, save_settings
 
 HOST = "0.0.0.0"
 PORT = 8080
@@ -368,6 +372,7 @@ class AdventureHandler(BaseHTTPRequestHandler):
                 ai.apply_config(data)
                 cfg = ai.config_dict()
                 cfg["mock"] = _use_mock
+                save_settings(ai, mock=_use_mock)
             print(f"CONFIG mock={_use_mock} provider={ai.provider} model={ai.model}")
             self._send_json({"ok": True, "config": cfg})
             return
@@ -476,22 +481,41 @@ def get_lan_ip() -> str:
         return "127.0.0.1"
 
 
+def _persist_settings() -> None:
+    """Respaldo al cerrar el proceso."""
+    if _ai is None:
+        return
+    save_settings(_ai, mock=_use_mock)
+
+
 def main() -> None:
     global _ai, _use_mock
 
     parser = argparse.ArgumentParser(description="Servidor SINTAXIA")
     parser.add_argument("--host", default=HOST)
     parser.add_argument("--port", type=int, default=PORT)
-    parser.add_argument("--model", default=DEFAULT_MODEL, help="Modelo inicial")
+    parser.add_argument(
+        "--model",
+        default=None,
+        help="Modelo inicial (si no se pasa, usa settings.json o el tipico del proveedor)",
+    )
     parser.add_argument("--mock", action="store_true", help="Arrancar en modo mock")
     parser.add_argument(
         "--provider",
-        choices=("ollama", "openai", "claude", "gemini", "openai_compat"),
-        default="ollama",
-        help="Proveedor LLM inicial",
+        choices=("ollama", "openai", "claude", "gemini", "openai_compat", "openrouter"),
+        default=None,
+        help="Proveedor LLM inicial (si no se pasa, usa settings.json o ollama)",
     )
-    parser.add_argument("--api-base", default="", help="Base URL API (OpenAI/Claude/Gemini/compat)")
-    parser.add_argument("--api-key", default="", help="API key (memoria; no se guarda a disco)")
+    parser.add_argument(
+        "--api-base",
+        default=None,
+        help="Base URL API (OpenAI/Claude/Gemini/compat/OpenRouter)",
+    )
+    parser.add_argument(
+        "--api-key",
+        default=None,
+        help="API key (tambien se guarda en server/settings.json local)",
+    )
     parser.add_argument(
         "--no-browser",
         action="store_true",
@@ -499,22 +523,57 @@ def main() -> None:
     )
     args = parser.parse_args()
 
-    _use_mock = args.mock
-    _ai = AdventureAI(model=args.model, provider=args.provider)
-    if args.api_base:
-        _ai.api_base = args.api_base.rstrip("/")
-    else:
-        from llm_providers import DEFAULTS as _PROV_DEFAULTS
+    saved = load_settings()
+    if saved:
+        print("SETTINGS cargados desde settings.json")
 
-        preset = (_PROV_DEFAULTS.get(args.provider) or {}).get("api_base") or ""
-        if preset:
-            _ai.api_base = preset.rstrip("/")
-    if args.api_key:
-        _ai.api_key = args.api_key
+    provider = args.provider or str(saved.get("provider") or "ollama")
+    if provider not in PROVIDERS:
+        provider = "ollama"
+    preset = PROV_DEFAULTS.get(provider) or {}
+    model = args.model or str(saved.get("model") or "") or str(
+        preset.get("model") or DEFAULT_MODEL
+    )
+
+    _ai = AdventureAI(model=model, provider=provider)
+    apply_from_file = {
+        k: saved[k]
+        for k in (
+            "ollama_url",
+            "api_base",
+            "api_key",
+            "temperature",
+            "system",
+            "start_state",
+        )
+        if k in saved
+    }
+    if apply_from_file:
+        _ai.apply_config(apply_from_file)
+
+    if args.api_base is not None:
+        _ai.apply_config({"api_base": args.api_base})
+    elif "api_base" not in saved:
+        preset_base = preset.get("api_base") or ""
+        if preset_base:
+            _ai.api_base = preset_base.rstrip("/")
+
+    if args.api_key is not None:
+        _ai.apply_config({"api_key": args.api_key})
+
+    _use_mock = bool(saved.get("mock")) if saved else False
+    if args.mock:
+        _use_mock = True
+
+    atexit.register(_persist_settings)
+
     if _use_mock:
         print("Modo MOCK (sin LLM)")
     else:
-        print(f"LLM provider={args.provider} model={args.model}")
+        print(
+            f"LLM provider={_ai.provider} model={_ai.model} "
+            f"key={'*' if _ai.api_key else '(none)'}"
+        )
 
     server = ThreadingHTTPServer((args.host, args.port), AdventureHandler)
     lan_ip = get_lan_ip()
@@ -537,6 +596,7 @@ def main() -> None:
     except KeyboardInterrupt:
         print("\nCerrado.")
     finally:
+        _persist_settings()
         server.server_close()
 
 

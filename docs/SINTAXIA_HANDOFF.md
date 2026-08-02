@@ -1,6 +1,6 @@
 # SINTAXIA — Handoff de sesión
 
-**Fecha:** 2026-08-02 (noche)  
+**Fecha:** 2026-08-02 (noche, late)  
 **Workspace local:** `C:\@MIS PROYECTOS\M4`  
 **Repo GitHub:** https://github.com/kapi21/SINTAXIA  
 **Branch:** `main`
@@ -10,22 +10,26 @@
 ## Estado
 
 - **Proyecto:** SINTAXIA — aventura conversacional IA para Amstrad CPC + M4 Board
-- **Hecho (sesión):**
-  - Splash `TITLE.SCR` Mode 1 OK en hardware; ping EOF fix; sin paginación; filtro `downloaded`
-  - Hasta **12 líneas** de narración (varias filas `T:` + `LN$(12)` en BASIC)
-  - Panel: **Generar prompt** / **Prompt por defecto**; abre `/ui` al arrancar (`--no-browser` para no)
-  - Generación = **mundo creativo** (LLM) + **reglas fijas** (`prompts/rules_fixed.txt`) → prompt compatible
-  - Al generar: también **estado inicial** (L/I/F); al Guardar se aplica y se limpia historial
-  - `/intro`: resumen narrativo de arranque (lugar/inventario/atmosfera); CPC lo muestra tras ping / tras `NUEVA`
-  - `NUEVA` / `REINICIO`: `/reset` restaura `start_state` del servidor + vuelve a pedir `/intro`
-  - Filtro de respuestas con meta en barras (`T:.../S:2/E:0`)
-  - Docs: `ESQUEMA_PAQUETE.md`, guía y manual actualizados
+- **Hecho (sesión reciente):**
+  - Proveedor **OpenRouter** (opción propia en panel/CLI; API OpenAI-compat; default `openrouter/auto`)
+  - Headers de atribución OpenRouter (`HTTP-Referer` + `X-OpenRouter-Title`)
+  - Fix: `content: null` de OpenRouter ya no tumba el hilo HTTP (`extract_openai_text` + catch en `turn`)
+  - **Persistencia** de ajustes en `server/settings.json` (gitignored): provider, model, urls, api_key, temperature, mock, system, start_state
+  - Se escribe al **Guardar** del panel y al **cerrar** el servidor; se carga al arrancar (CLI puede pisar)
+  - Docs: handoff, guía, manual al día
+- **Hecho (antes, sigue vigente):**
+  - Splash `TITLE.SCR` Mode 1; ping EOF; sin paginación; hasta 12 líneas `T:`
+  - Generar prompt = WORLD LLM + `rules_fixed.txt`; `/intro`; `NUEVA`/`REINICIO` + `start_state`
 - **Pendiente:**
-  - Cuota Gemini / pulir I/L/F del Master en partida
+  - Pulir I/L/F del Master en partida
   - TCP Z80 (largo)
 - **Verificar:**
-  - `run_server.bat` → panel automático → Generar prompt → Guardar → CPC `RUN"aventura"` / `NUEVA`
-- **Riesgos:** `P$` fija; reiniciar servidor tras cambios Python; SCR overscan no vale para BASIC
+  - Configurar OpenRouter → Guardar → cerrar servidor → reabrir → debe cargar settings
+  - Turno de prueba / CPC con OpenRouter
+- **Riesgos:**
+  - `settings.json` tiene la API key en claro (solo local; no subir a Git)
+  - No loguear URLs con `api_key=` en claro si se puede evitar; rotar keys si se filtran
+  - Reiniciar servidor tras cambios Python
 
 ---
 
@@ -33,20 +37,23 @@
 
 1. Splash `TITLE.SCR` (ESPACIO) o fallback texto  
 2. Intro comandos + ping `/ping`  
-3. Si OK: **Situacion** vía `/intro` (resumen del mundo actual)  
+3. Si OK: **Situacion** vía `/intro`  
 4. Prompt `>`  
 
-`NUEVA`/`REINICIO` = `/reset` (mundo base del PC) + `/intro` de nuevo.
+`NUEVA`/`REINICIO` = `/reset` (`start_state`) + `/intro`.
 
 ---
 
-## Panel / generación de mundos
+## Panel / IA / persistencia
 
-| Botón | Efecto |
-|-------|--------|
-| Generar prompt | LLM inventa WORLD+STATE; servidor ensambla prompt con `rules_fixed.txt` |
-| Prompt por defecto | `master.txt` + estado castillo vacío |
-| Guardar | Aplica system + `start_state` (si hay pendiente) |
+| Pieza | Detalle |
+|-------|---------|
+| Proveedores | Ollama, OpenAI, Claude, Gemini, **OpenRouter**, Compatible |
+| OpenRouter | Base `https://openrouter.ai/api/v1`; modelo tipico `openrouter/auto` |
+| Guardar (panel) | Aplica config + escribe `server/settings.json` |
+| Cierre servidor | Vuelve a escribir settings (`atexit` / Ctrl+C) |
+| Arranque | Carga settings; flags `--provider`/`--model`/`--api-key`/`--mock` pisan esa sesión |
+| Generar prompt | WORLD+STATE; ensambla con `rules_fixed.txt` |
 
 Esquema T/S/E/I/L/F: `docs/ESQUEMA_PAQUETE.md`
 
@@ -64,18 +71,19 @@ Esquema T/S/E/I/L/F: `docs/ESQUEMA_PAQUETE.md`
 
 ---
 
-## Endpoints CPC / panel
+## Endpoints
 
 | Ruta | Uso |
 |------|-----|
 | `/ping` | Salud |
-| `/intro` | Resumen narrativo de arranque |
+| `/intro` | Resumen narrativo |
 | `/turn?msg=` | Turno |
 | `/reset` | Reinicio al `start_state` |
-| `/ui` | Panel (se abre solo al arrancar) |
+| `/ui` | Panel |
+| `/api/config` | Config (+ persistencia) |
 | `/api/generate_prompt` | Mundo + state |
 | `/api/default_prompt` | master + state default |
-| `/api/config` | Config (+ `start_state` opcional) |
+| `/api/models` | Lista modelos del proveedor |
 
 ---
 
@@ -96,14 +104,16 @@ Máx. 12×40; varias filas `T:` si hace falta. Nunca unir con `/`.
 
 | Archivo | Rol |
 |---------|-----|
-| `client/aventura.bas` | Cliente (splash, intro, LN$, NUEVA) |
+| `client/aventura.bas` | Cliente CPC |
 | `client/TITLE.SCR` | Titulo Mode 1 |
-| `server/server.py` | HTTP + locks + browser |
-| `server/ai_adventure.py` | LLM, generate world, intro, scrub |
-| `server/prompts/rules_fixed.txt` | Reglas T/S/E inmutables |
-| `server/prompts/master.txt` | Prompt por defecto |
+| `server/server.py` | HTTP, browser, carga/guarda settings |
+| `server/settings_store.py` | Lectura/escritura `settings.json` |
+| `server/settings.json` | **Local** (gitignored; API keys) |
+| `server/llm_providers.py` | Defaults + OpenRouter headers |
+| `server/ai_adventure.py` | LLM, intro, generate, scrub |
+| `server/prompts/rules_fixed.txt` | Reglas T/S/E |
 | `server/web/ui.html` | Panel |
-| `docs/ESQUEMA_PAQUETE.md` | Esquema T/S/E/I/L/F |
+| `docs/ESQUEMA_PAQUETE.md` | Esquema paquete |
 | `docs/GUIA_JUGADOR.md` / `MANUAL.md` | Docs usuario |
 
 ---
@@ -111,16 +121,16 @@ Máx. 12×40; varias filas `T:` si hace falta. Nunca unir con `/`.
 ## Decisiones
 
 - MODE 1; HTTP; plantilla fija + mundo LLM  
-- `start_state` en servidor para resets coherentes  
+- OpenRouter como proveedor de primera clase (no solo Compatible)  
+- Settings locales con API key; no subir a GitHub  
 - No subir `ConvImgCpc.exe`, saves JSON, overscan SCR  
-- Reiniciar `server.py` tras cambiar Python  
 
 ---
 
 ## Proximos pasos
 
-1. Probar Generar → Guardar → CPC intro + NUEVA en hardware  
-2. Seguir puliendo narracion I/L/F en partida  
+1. Probar persistencia OpenRouter en hardware real  
+2. Seguir puliendo narracion I/L/F  
 3. (Largo) net ASM  
 
 ---
@@ -128,4 +138,5 @@ Máx. 12×40; varias filas `T:` si hace falta. Nunca unir con `/`.
 ## Notas Windows
 
 `run_server.bat` / `run_server.bat --no-browser`  
+`run_server.bat --provider openrouter --api-key …`  
 Rutas con `@`: comillas / `-LiteralPath`

@@ -2,7 +2,7 @@
 
 **Aventura conversacional con IA para Amstrad CPC + M4 Board**
 
-Versión del manual: 2026-08-02 v3  
+Versión del manual: 2026-08-02 v4  
 Repositorio: https://github.com/kapi21/SINTAXIA
 
 ---
@@ -39,7 +39,7 @@ El CPC se encarga de:
 
 El PC se encarga de:
 
-- Hablar con **Ollama**, **OpenAI**, **Claude**, **Gemini**, una **API OpenAI-compatible**, o un modo **Mock** de prueba
+- Hablar con **Ollama**, **OpenAI**, **Claude**, **Gemini**, **OpenRouter**, una **API OpenAI-compatible**, o un modo **Mock** de prueba
 - Empaquetar la respuesta para el CPC
 - Guardar inventario, flags, lugar e historial corto
 - Ofrecer un **panel web** de configuracion estilo CPC
@@ -228,14 +228,17 @@ Orden recomendado:
 
 | Comando | Efecto |
 |---------|--------|
-| `run_server.bat` | IA con Ollama; abre el panel `/ui` en el navegador |
+| `run_server.bat` | Carga `server/settings.json` si existe; si no, Ollama. Abre el panel `/ui` |
 | `run_server.bat --no-browser` | Igual sin abrir el navegador |
-| `run_server.bat --mock` | Sin LLM; respuestas por palabras clave |
-| `run_server.bat --model llama3.1:8b` | Elige modelo Ollama |
+| `run_server.bat --mock` | Sin LLM; respuestas por palabras clave (pisa settings en esa sesion) |
+| `run_server.bat --model llama3.1:8b` | Elige modelo (pisa settings) |
 | `run_server.bat --provider openai` | OpenAI oficial (`api.openai.com`; usa `--api-key`) |
+| `run_server.bat --provider openrouter` | OpenRouter (`openrouter.ai`; usa `--api-key`) |
 | `run_server.bat --provider openai_compat` | API compatible (LM Studio, Ollama `/v1`, etc.) |
 | `run_server.bat --provider claude` | Anthropic Claude (requiere `--api-key`) |
 | `run_server.bat --provider gemini` | Google Gemini (requiere `--api-key`) |
+
+Los flags CLI solo afectan a **esa** sesion; al **Guardar** o al cerrar el servidor se vuelve a escribir `settings.json` con lo que haya en memoria.
 
 Desde PowerShell:
 
@@ -265,17 +268,18 @@ El panel imita un monitor CPC (borde azul, tipografia pixel, arte hero).
 | **Proveedor → OpenAI** | API oficial `https://api.openai.com/v1` + API key. |
 | **Proveedor → Claude** | Anthropic Messages API + API key (`x-api-key`). |
 | **Proveedor → Gemini** | Google Generative Language + API key. |
+| **Proveedor → OpenRouter** | `https://openrouter.ai/api/v1` + API key. Modelo por defecto `openrouter/auto`. |
 | **Proveedor → Compatible** | Cualquier servidor tipo OpenAI (`/v1/chat/completions`: LM Studio, Ollama `/v1`, proxies…). |
 | **Selector de Modelo** | Desplegable que se rellena al pulsar **Modelos ↺** o al cambiar proveedor. Al elegir uno se copia al campo de texto. |
 | **Modelo (texto)** | Escribe el id del modelo a mano si no aparece en el selector (`llama3.1:8b`, `gpt-4o-mini`, `claude-haiku-4-5`, `gemini-2.0-flash`…). Tiene prioridad sobre el selector. |
 | **Temperatura** | 0.0–2.0. Bajo = mas predecible; alto = mas inventivo (y a veces mas caotico). |
 | **URL Ollama chat** | Por defecto `http://127.0.0.1:11434/api/chat`. Cambiala solo si Ollama esta en otra maquina/puerto. |
 | **Base API** | URL base del proveedor cloud o compatible. Al cambiar proveedor el panel rellena un valor tipico. |
-| **API key** | Clave OpenAI / Anthropic / Google. Solo en **memoria** del servidor. No hace falta con Ollama local. Al pegar la key, el panel carga los modelos automáticamente (debounce 700ms). |
+| **API key** | Clave OpenAI / Anthropic / Google / OpenRouter. Se guarda en `server/settings.json` (local, no va a Git) al pulsar **Guardar** y al cerrar el servidor. No hace falta con Ollama local. Al pegar la key, el panel carga los modelos automáticamente (debounce 700ms). |
 | **System prompt** | Instrucciones del Master. Editable a mano. Ver tambien **Generar prompt** / **Prompt por defecto**. |
 | **Generar prompt** | La IA inventa solo el **mundo** (tema, tono, lugar…); el servidor anade las **reglas fijas** (`prompts/rules_fixed.txt`) y un **estado inicial** (lugar/inventario/flags). Revisa el texto y pulsa **Guardar**. |
 | **Prompt por defecto** | Restaura `prompts/master.txt` + estado clasico (entrada del castillo). Luego **Guardar**. |
-| **Guardar** | Aplica config (y el `start_state` pendiente si viniste de Generar/Por defecto). |
+| **Guardar** | Aplica config (y el `start_state` pendiente si viniste de Generar/Por defecto) y la escribe en `server/settings.json` para el proximo arranque. |
 | **Modelos ↺** | Consulta la API del proveedor actual y rellena el selector. |
 | **Nueva** | Reinicia la partida al **mundo base** actual del servidor (`/reset` / `start_state`). |
 | **Refresh** | Recarga estado mostrado sin cambiar config. |
@@ -296,15 +300,27 @@ El panel imita un monitor CPC (borde azul, tipografia pixel, arte hero).
 | **Error LLM** | Ultimo error de red/API si fallo la IA. |
 | **Probar turno** | Envia un `/turn` desde el PC sin usar el CPC (depuracion). |
 
-### 7.3 Flujo tipico en la IU
+### 7.3 Persistencia de ajustes (`settings.json`)
 
-1. Arranca el servidor.
+Al pulsar **Guardar** (y al cerrar el servidor) se escribe `server/settings.json` en el PC:
+
+- proveedor, modelo, URLs, temperatura, modo mock  
+- **API key** (en claro; fichero local, **no** se sube a Git)  
+- system prompt y `start_state` (mundo base)
+
+Al arrancar de nuevo, el servidor carga ese fichero. Veras en consola `SETTINGS cargados…` y el proveedor/modelo recordados.
+
+No confundir con las **partidas** (`server/saves/slotN.json`): eso es inventario/historial de juego.
+
+### 7.4 Flujo tipico en la IU
+
+1. Arranca el servidor (si ya guardaste antes, OpenRouter u otro proveedor vuelve solo).
 2. Abre `/ui`.
-3. Elige **IA** + **Ollama** → el selector de modelos se rellena automáticamente → elige modelo → **Guardar**.
-4. Para OpenAI/Claude/Gemini: elige proveedor → pega la **API key** (el panel carga modelos solos tras 0,7 s) → elige modelo del selector → **Guardar**.
-5. O pulsa **Modelos ↺** en cualquier momento para recargar la lista.
-6. Deja el panel abierto mientras juegas en el CPC: veras el ultimo paquete y el inventario actualizarse.
-7. Usa **Guardar/Cargar** slot cuando quieras pausar la aventura.
+3. Primera vez / Ollama: **IA** + **Ollama** → modelos → **Guardar**.
+4. Cloud (OpenAI/Claude/Gemini/OpenRouter): proveedor → **API key** → modelo → **Guardar**.
+5. O pulsa **Modelos ↺** para recargar la lista.
+6. Deja el panel abierto mientras juegas en el CPC.
+7. Usa **Guardar/Cargar** slot (partidas) cuando quieras pausar la aventura.
 
 ---
 
@@ -457,15 +473,16 @@ Si cargas un slot vacio: mensaje de error (`E:1`).
 |---------|-------------|
 | Intro: SERVIDOR NO ACTIVO | `run_server.bat` en marcha; `P$` = IP del PC; firewall 8080; misma Wi‑Fi |
 | `Fallo red/archivo` | M4 conectada (`|NETSTAT`); servidor en `0.0.0.0:8080` |
-| Texto cortado o `...` | Limite 6×40 del protocolo; normal si la IA escribe de mas |
+| Texto cortado o `...` | Limite 12×40 del protocolo; normal si la IA escribe de mas |
 | Texto basura / ERROR: raro | Servidor antiguo sin CRLF; actualiza y reinicia `server.py` |
-| IA no responde | Ollama arriba; modelo correcto; panel en modo IA; mira **Error LLM** |
+| IA no responde | Proveedor/key correctos; panel en modo IA; mira **Error LLM** (OpenRouter a veces `content` vacio: el panel muestra error, no crash) |
+| Siempre arranca en Ollama | Pulsa **Guardar** tras elegir proveedor; comprueba que existe `server/settings.json` |
 | Mock siempre igual | Es normal sin palabras clave; cambia a modo IA |
 | `RUN"aventura` no carga | Tokeniza el BASIC en emulador o teclea y `SAVE` |
 | Load no restaura en CPC | El load afecta al **servidor**; el siguiente turno en CPC ya usa ese estado |
-| Panel no responde / congelado | Reinicia `server.py`; en sesiones antiguas el lock bloqueaba el panel durante el turno LLM — resuelto en v2 |
-| Selector modelos vacio (Ollama) | Ollama debe estar arriba; pulsa **Modelos ↺**; mira consola del servidor para el error exacto |
-| Selector modelos vacio (cloud) | Introduce la API key → espera 1 s → se cargan solos; o pulsa **Modelos ↺** con la key en el campo |
+| Panel no responde / congelado | Reinicia `server.py` |
+| Selector modelos vacio (Ollama) | Ollama debe estar arriba; pulsa **Modelos ↺**; mira consola del servidor |
+| Selector modelos vacio (cloud) | Introduce la API key → espera 1 s → se cargan solos; o pulsa **Modelos ↺** |
 
 ### Prueba minima de red desde el CPC
 
@@ -487,6 +504,9 @@ Deberia verse algo como `T:OK servidor ...`.
 | Panel | http://127.0.0.1:8080/ui |
 | Cliente CPC | `client/aventura.bas` |
 | Arranque PC | `run_server.bat` |
+| Ajustes locales | `server/settings.json` (gitignored) |
+| Esquema paquete | `docs/ESQUEMA_PAQUETE.md` |
+| Guia jugador | `docs/GUIA_JUGADOR.md` |
 | Notas cortas SD | `docs/CARGA.md` |
 | Handoff tecnico | `docs/SINTAXIA_HANDOFF.md` |
 | Hardware M4 | https://github.com/M4Duke/m4hardware |

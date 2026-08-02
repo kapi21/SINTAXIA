@@ -4,7 +4,9 @@ from __future__ import annotations
 
 from typing import Any
 
-PROVIDERS = frozenset({"ollama", "openai", "claude", "gemini", "openai_compat"})
+PROVIDERS = frozenset(
+    {"ollama", "openai", "claude", "gemini", "openai_compat", "openrouter"}
+)
 
 DEFAULTS: dict[str, dict[str, str]] = {
     "ollama": {
@@ -33,13 +35,32 @@ DEFAULTS: dict[str, dict[str, str]] = {
         "api_base": "http://127.0.0.1:11434/v1",
         "model": "llama3.1:8b",
     },
+    "openrouter": {
+        "label": "OpenRouter",
+        "api_base": "https://openrouter.ai/api/v1",
+        "model": "openrouter/auto",
+    },
 }
 
 ANTHROPIC_VERSION = "2023-06-01"
+OPENROUTER_REFERER = "https://github.com/kapi21/SINTAXIA"
+OPENROUTER_TITLE = "SINTAXIA"
+OPENAI_COMPAT_PROVIDERS = frozenset({"openai", "openai_compat", "openrouter"})
 
 
 def openai_chat_url(api_base: str) -> str:
     return api_base.rstrip("/") + "/chat/completions"
+
+
+def openai_compat_headers(api_key: str = "", provider: str = "") -> dict[str, str]:
+    """Headers Bearer (+ atribucion OpenRouter si aplica)."""
+    headers: dict[str, str] = {"Content-Type": "application/json"}
+    if api_key:
+        headers["Authorization"] = f"Bearer {api_key}"
+    if provider == "openrouter":
+        headers["HTTP-Referer"] = OPENROUTER_REFERER
+        headers["X-OpenRouter-Title"] = OPENROUTER_TITLE
+    return headers
 
 
 def claude_url(api_base: str) -> str:
@@ -104,7 +125,35 @@ def build_gemini_payload(
 
 
 def extract_openai_text(data: dict[str, Any]) -> str:
-    return data["choices"][0]["message"]["content"]
+    """Extrae texto de chat completions OpenAI/OpenRouter.
+
+    OpenRouter tipa content como string | null; a veces viene lista de parts.
+    """
+    choices = data.get("choices") or []
+    if not choices:
+        raise RuntimeError(f"Respuesta LLM sin choices: {str(data)[:300]}")
+    choice0 = choices[0] if isinstance(choices[0], dict) else {}
+    err = choice0.get("error")
+    if err:
+        raise RuntimeError(f"Error del proveedor LLM: {err}")
+    msg = choice0.get("message") or {}
+    content = msg.get("content")
+    if isinstance(content, list):
+        parts: list[str] = []
+        for part in content:
+            if isinstance(part, str):
+                parts.append(part)
+            elif isinstance(part, dict):
+                text = part.get("text")
+                if text:
+                    parts.append(str(text))
+        content = "".join(parts)
+    if content is None or (isinstance(content, str) and not content.strip()):
+        raise RuntimeError(
+            "Respuesta LLM sin texto (content vacio/null). "
+            f"finish={choice0.get('finish_reason')!r} model={data.get('model')!r}"
+        )
+    return str(content)
 
 
 def extract_claude_text(data: dict[str, Any]) -> str:

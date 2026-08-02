@@ -394,14 +394,15 @@
               <option value="mock" data-tip-title="MOCK" data-tip="Sin inteligencia artificial: utiles para comprobar que el CPC y el PC se entienden.">Mock (sin IA)</option>
             </select>
             <label for="provider" data-tip-title="PROVEEDOR"
-                   data-tip="Quien genera el texto. Ollama local, o APIs cloud (OpenAI, Claude, Gemini), o cualquier servidor Compatible.">Proveedor</label>
+                   data-tip="Quien genera el texto. Ollama local, o APIs cloud (OpenAI, Claude, Gemini, OpenRouter), o cualquier servidor Compatible.">Proveedor</label>
             <select id="provider"
                     data-tip-title="PROVEEDOR"
-                    data-tip="Quien genera el texto. Ollama local, o APIs cloud (OpenAI, Claude, Gemini), o cualquier servidor Compatible.">
+                    data-tip="Quien genera el texto. Ollama local, o APIs cloud (OpenAI, Claude, Gemini, OpenRouter), o cualquier servidor Compatible.">
               <option value="ollama" data-tip-title="OLLAMA" data-tip="API nativa de Ollama en tu PC (recomendado para la PoC).">Ollama (local)</option>
               <option value="openai" data-tip-title="OPENAI" data-tip="API oficial de OpenAI (api.openai.com). Necesitas API key.">OpenAI</option>
               <option value="claude" data-tip-title="CLAUDE" data-tip="API de Anthropic (Claude). Necesitas API key de console.anthropic.com.">Claude (Anthropic)</option>
               <option value="gemini" data-tip-title="GEMINI" data-tip="API de Google Gemini. Necesitas API key de Google AI Studio. Habla directo con Google.">Gemini (Google)</option>
+              <option value="openrouter" data-tip-title="OPENROUTER" data-tip="OpenRouter (openrouter.ai): unifica muchos modelos con una sola API key. Por defecto openrouter/auto.">OpenRouter</option>
               <option value="openai_compat" data-tip-title="COMPATIBLE" data-tip="Cualquier servidor con API tipo /v1/chat/completions (LM Studio, Ollama /v1, proxies…).">Compatible (OpenAI API)</option>
             </select>
             <div class="row">
@@ -439,10 +440,10 @@
                    data-tip-title="BASE API"
                    data-tip="URL base del proveedor cloud o compatible (sin el path final de chat). En Ollama se usa sobre todo la URL de chat de arriba." />
             <label for="api_key" data-tip-title="API KEY"
-                   data-tip="Clave de OpenAI, Anthropic (Claude) o Google (Gemini). Solo en memoria del servidor; no hace falta con Ollama local.">API key</label>
+                   data-tip="Clave de OpenAI, Anthropic (Claude), Google (Gemini) u OpenRouter. Solo en memoria del servidor; no hace falta con Ollama local.">API key</label>
             <input id="api_key" type="password" placeholder="(opcional)"
                    data-tip-title="API KEY"
-                   data-tip="Clave de OpenAI, Anthropic (Claude) o Google (Gemini). Solo en memoria del servidor; no hace falta con Ollama local." />
+                   data-tip="Clave de OpenAI, Anthropic (Claude), Google (Gemini) u OpenRouter. Solo en memoria del servidor; no hace falta con Ollama local." />
             <label for="system" data-tip-title="SYSTEM PROMPT"
                    data-tip="Instrucciones fijas del maestro: tono, reglas de la aventura y formato. Cambialo con cuidado: afecta a toda la partida.">System prompt</label>
             <textarea id="system"
@@ -679,10 +680,14 @@
         model: "llama3.1:8b",
         api_base: "http://127.0.0.1:11434/v1",
       },
+      openrouter: {
+        model: "openrouter/auto",
+        api_base: "https://openrouter.ai/api/v1",
+      },
     };
 
     // Proveedores que requieren API key para listar modelos
-    const NEEDS_KEY = new Set(["openai", "claude", "gemini"]);
+    const NEEDS_KEY = new Set(["openai", "claude", "gemini", "openrouter"]);
 
     async function loadModels(silent, forceKey) {
       const provider = $("provider").value;

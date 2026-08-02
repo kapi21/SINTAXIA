@@ -70,8 +70,10 @@ class GameState:
 
     def apply_meta_lines(self, raw: str) -> str:
         """Aplica I:/L:/F: del LLM y devuelve el texto sin esas lineas."""
+        if raw is None:
+            raw = ""
         keep: list[str] = []
-        for line in raw.replace("\r\n", "\n").replace("\r", "\n").split("\n"):
+        for line in str(raw).replace("\r\n", "\n").replace("\r", "\n").split("\n"):
             s = line.strip()
             if not s:
                 keep.append(line)

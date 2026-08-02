@@ -32,6 +32,9 @@ client/title_preview.png
 # Saves de partida (locales)
 server/saves/*.json
 
+# Ajustes del servidor (incluye API keys; solo local)
+server/settings.json
+
 # Herramientas / exports locales ConvImgCPC
 imagen/ConvImgCpc.exe
 imagen/*.asm

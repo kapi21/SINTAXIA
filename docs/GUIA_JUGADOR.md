@@ -28,7 +28,7 @@ Ademas:
 ## Lo que necesitas
 
 1. **Amstrad CPC** con **M4 Board** en tu Wi‑Fi.  
-2. **PC** (Windows) en la **misma Wi‑Fi**, con SINTAXIA y (recomendado) Ollama u otra IA.  
+2. **PC** (Windows) en la **misma Wi‑Fi**, con SINTAXIA y una IA (Ollama local, OpenRouter u otra API).  
 3. En la microSD: `aventura.bas` y, si puedes, `TITLE.SCR` (pantalla de titulo).
 
 Si alguien te lo dejo preparado, salta a [Empezar a jugar](#empezar-a-jugar).
@@ -44,7 +44,8 @@ Si alguien te lo dejo preparado, salta a [Empezar a jugar](#empezar-a-jugar).
    - Suele abrirse solo el panel en el navegador.  
 4. Panel: **http://127.0.0.1:8080/ui**  
    - **Modo = IA** para jugar con inteligencia artificial.  
-   - Puedes elegir Ollama, OpenAI, Claude o Gemini (con su clave).  
+   - Puedes elegir Ollama, OpenAI, Claude, Gemini u **OpenRouter** (con su clave).  
+   - Pulsa **Guardar**: el PC recuerda proveedor, modelo y clave para el proximo arranque.  
    - Pasa el raton por el **?** de cada opcion para ver ayuda.  
    - Quien administra el sistema puede pulsar **Generar prompt** para inventar un mundo nuevo y luego **Guardar**.
 
@@ -132,7 +133,8 @@ Opciones avanzadas (quien monta el sistema):
 
 - **Generar prompt**: inventa un mundo nuevo (luego **Guardar**).  
 - **Prompt por defecto**: vuelve al castillo clasico (luego **Guardar**).  
-- Modelo, temperatura, API key…
+- Modelo, temperatura, API key (OpenRouter u otras).  
+- Tras **Guardar**, esos ajustes se reutilizan al volver a abrir `run_server.bat`.
 
 ---
 

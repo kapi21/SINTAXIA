@@ -1,4 +1,4 @@
-"""Cliente LLM (Ollama, OpenAI, Claude, Gemini, OpenAI-compatible) + empaquetado CPC."""
+"""Cliente LLM (Ollama, OpenAI, Claude, Gemini, OpenRouter, OpenAI-compatible) + empaquetado CPC."""
 
 from __future__ import annotations
 
@@ -15,6 +15,7 @@ from game_state import GameState
 from llm_providers import (
     ANTHROPIC_VERSION,
     DEFAULTS,
+    OPENAI_COMPAT_PROVIDERS,
     PROVIDERS,
     build_claude_payload,
     build_gemini_payload,
@@ -24,6 +25,7 @@ from llm_providers import (
     extract_openai_text,
     gemini_url,
     openai_chat_url,
+    openai_compat_headers,
 )
 from protocol import CPC_MAX_LINES, CPC_WIDTH, build_packet, packet_from_text, parse_packet
 
@@ -388,7 +390,7 @@ def list_provider_models(
     Devuelve la lista de modelos disponibles para el proveedor indicado.
 
     - ollama      → GET {api/tags}         (sin autenticación)
-    - openai/compat → GET {api_base}/models (Bearer api_key)
+    - openai/compat/openrouter → GET {api_base}/models (Bearer api_key)
     - claude      → GET https://api.anthropic.com/v1/models (x-api-key)
     - gemini      → GET {api_base}/models?key=api_key
     """
@@ -409,14 +411,12 @@ def list_provider_models(
             names = [m.get("name", "") for m in data.get("models", []) if m.get("name")]
             return sorted(names)
 
-        if provider in ("openai", "openai_compat"):
+        if provider in OPENAI_COMPAT_PROVIDERS:
             if not api_base:
                 from llm_providers import DEFAULTS
                 api_base = DEFAULTS.get(provider, {}).get("api_base", "https://api.openai.com/v1")
             url = api_base.rstrip("/") + "/models"
-            headers: dict[str, str] = {"Content-Type": "application/json"}
-            if api_key:
-                headers["Authorization"] = f"Bearer {api_key}"
+            headers = openai_compat_headers(api_key, provider)
             req = urllib.request.Request(url, headers=headers)
             with urllib.request.urlopen(req, timeout=8) as resp:
                 data = json.loads(resp.read().decode("utf-8"))
@@ -690,9 +690,7 @@ class AdventureAI:
             "temperature": self.temperature,
             "max_tokens": 500,
         }
-        headers = {"Content-Type": "application/json"}
-        if self.api_key:
-            headers["Authorization"] = f"Bearer {self.api_key}"
+        headers = openai_compat_headers(self.api_key, self.provider)
         data = self._post_json(
             openai_chat_url(self.api_base), payload, headers, timeout
         )
@@ -732,7 +730,7 @@ class AdventureAI:
         return text
 
     def _chat(self, user_msg: str, timeout: float = 120.0) -> str:
-        if self.provider in ("openai", "openai_compat"):
+        if self.provider in OPENAI_COMPAT_PROVIDERS:
             return self._chat_openai_compat(user_msg, timeout)
         if self.provider == "claude":
             return self._chat_claude(user_msg, timeout)
@@ -746,16 +744,14 @@ class AdventureAI:
             {"role": "system", "content": system},
             {"role": "user", "content": user},
         ]
-        if self.provider in ("openai", "openai_compat"):
+        if self.provider in OPENAI_COMPAT_PROVIDERS:
             payload = {
                 "model": self.model,
                 "messages": messages,
                 "temperature": min(1.0, max(0.4, self.temperature)),
                 "max_tokens": 1800,
             }
-            headers = {"Content-Type": "application/json"}
-            if self.api_key:
-                headers["Authorization"] = f"Bearer {self.api_key}"
+            headers = openai_compat_headers(self.api_key, self.provider)
             data = self._post_json(
                 openai_chat_url(self.api_base), payload, headers, timeout
             )
@@ -914,6 +910,8 @@ class AdventureAI:
 
         try:
             raw = self._chat(user_msg)
+            if not isinstance(raw, str):
+                raise RuntimeError(f"Respuesta LLM invalida (tipo {type(raw).__name__})")
             raw = normalize_protocol_separators(raw)
             raw = self.state.apply_meta_lines(raw)
             packet = repack_llm_text(raw)
@@ -935,6 +933,8 @@ class AdventureAI:
             IndexError,
             RuntimeError,
             ValueError,
+            TypeError,
+            AttributeError,
         ) as exc:
             self.last_error = str(exc)
             print(f"LLM error: {exc}")
