@@ -23,7 +23,7 @@
 140 IF M$="AYUDA" OR M$="ayuda" OR M$="Ayuda" THEN GOSUB 7700:GOTO 100
 150 IF M$="NUEVA" OR M$="nueva" OR M$="Nueva" THEN GOSUB 7800:GOTO 100
 160 GOSUB 1000:REM encode -> U$
-170 A$="@"+P$+"/turn?msg="+U$+">RESP.TXT"
+170 A$="http://"+P$+"/turn?msg="+U$+">RESP.TXT"
 180 IF LEN(A$)>240 THEN PEN 3:PRINT "Msg muy largo":PEN 1:GOTO 100
 190 GOSUB 1500:REM animacion pensando (M1)
 200 |HTTPGET,@A$
@@ -195,7 +195,7 @@
 7480 RETURN
 7500 REM --- ping HTTP /ping ---
 7510 OK=0:E=1:T$=""
-7520 A$="@"+P$+"/ping>PING.TXT"
+7520 A$="http://"+P$+"/ping>PING.TXT"
 7530 |HTTPGET,@A$
 7535 FOR D=1 TO 50:NEXT D:REM pausa flush M4
 7540 OPENIN "PING.TXT"
@@ -223,7 +223,7 @@
 7790 RETURN
 7800 REM --- nueva partida /reset ---
 7810 PEN 2:PRINT "Nueva partida...":PEN 1
-7820 A$="@"+P$+"/reset>RESP.TXT"
+7820 A$="http://"+P$+"/reset>RESP.TXT"
 7830 |HTTPGET,@A$
 7840 GOSUB 2000
 7850 S=0:GOSUB 9100
@@ -249,7 +249,7 @@
 8060 RESUME 100
 8500 REM --- QUIT: auto-guardar slot 1 y reset CPC ---
 8510 PEN 2:PRINT "Guardando estado en servidor...":PEN 1
-8520 A$="@"+P$+"/turn?msg=save+1>RESP.TXT"
+8520 A$="http://"+P$+"/turn?msg=save+1>RESP.TXT"
 8530 |HTTPGET,@A$
 8540 FOR D=1 TO 50:NEXT D
 8550 PEN 2:PRINT "Hasta pronto. Reiniciando CPC...":PEN 1
@@ -286,4 +286,5 @@
 9290 ENV 5,1,12,1,4,1,1,10,-1,2
 9300 ENT 5,5,-8,1,5,-8,1,5,-8,1
 9310 RETURN
+
 
