@@ -2,6 +2,14 @@
 
 > *"Del texto estructurado a la red neuronal: El retorno de la aventura conversacional a los 8 bits."*
 
+<p align="center">
+  <img src="server/web/hero.png" alt="SINTAXIA — aventura conversacional en Amstrad CPC" width="100%" />
+</p>
+
+<p align="center">
+  <em>IA + Amstrad CPC + M4 Board · narrativa, inventario y chip AY-3-8912</em>
+</p>
+
 **SINTAXIA** conecta un **Amstrad CPC real** (464/6128) a un LLM (Ollama u otro) mediante la **[M4 Board](https://github.com/M4Duke/m4hardware)** (Wi‑Fi).
 
 La IA genera la narrativa en lenguaje natural, el PC la empaqueta para el CPC (40 columnas, ASCII) y el cliente en Locomotive BASIC muestra el texto y dispara efectos en el chip **AY‑3‑8912**.
