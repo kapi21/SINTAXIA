@@ -1,6 +1,6 @@
 # SINTAXIA — Handoff de sesión
 
-**Fecha:** 2026-08-02 (tarde / cierre sesión)  
+**Fecha:** 2026-08-02 (sesión tarde)  
 **Workspace local:** `C:\@MIS PROYECTOS\M4`  
 **Repo GitHub:** https://github.com/kapi21/SINTAXIA  
 **Branch:** `main`
@@ -14,7 +14,13 @@
   - Cliente BASIC: splash `TITLE.SCR` (espacio) + intro/ping + AY + INV/SAVE/LOAD
   - Servidor HTTP + panel `/ui` (estilo CPC, tooltips solo en `?`)
   - LLM multi-proveedor: **Ollama, OpenAI, Claude, Gemini, Compatible**
+  - **NUEVO:** `/api/models` multi-proveedor — lista modelos de cualquier API
+  - **NUEVO:** Panel UI carga modelos automáticamente al cambiar proveedor o teclear API key
+  - **NUEVO:** Selector de modelos con `<select>` + input manual + datalist
+  - **FIX:** Servidor ya no se congela al hacer un turno (lock LLM separado)
+  - **FIX:** Ollama modelos: errores reales visibles en panel (antes fallaba en silencio)
   - Inventario/estado, slots save 1–3, guías `MANUAL` + `GUIA_JUGADOR`
+  - Licencia MIT, `hero - copia.png` eliminado
 - **Pendiente:**
   - Probar splash en CPC real (copiar `TITLE.SCR` + `aventura.bas` a la SD)
   - Cuota/billing Gemini API (AI Studio ≠ suscripción Gemini Pro chat)
@@ -24,7 +30,7 @@
   - PC: `run_server.bat` → http://127.0.0.1:8080/ui
   - Regenerar título: `python tools/make_title_scr.py`
   - CPC: SD con `aventura.bas` + `TITLE.SCR` → `RUN"aventura` → ESPACIO
-- **Riesgos:** `P$` IP fija en BASIC; Gemini free tier puede dar 429 (`limit: 0`); reiniciar servidor tras cambios Python; `.bas` ASCII puede necesitar tokenizar; tope texto CPC ~6×40 / 255 chars
+- **Riesgos:** `P$` IP fija en BASIC; Gemini free tier puede dar 429 (`limit: 0`); **reiniciar servidor tras cambios Python**; `.bas` ASCII puede necesitar tokenizar; tope texto CPC ~6×40 / 255 chars
 
 ---
 
@@ -72,6 +78,17 @@ client/aventura.bas              server/server.py :8080
 **Proveedores LLM:** `ollama` | `openai` | `claude` | `gemini` | `openai_compat`  
 **Transporte:** HTTP (`|HTTPGET`). TCP/ASM = futuro.
 
+### Concurrencia (importante)
+
+`server.py` usa `ThreadingHTTPServer` con **dos locks independientes**:
+
+| Lock | Protege | Duración |
+|------|---------|----------|
+| `_state_lock` | config, reset, saves, mock, ping — cualquier ruta rápida | milisegundos |
+| `_turn_lock` | la llamada al LLM en `ai.turn()` | 5–120 s |
+
+`_turn_lock` serializa los turnos LLM pero **no bloquea** el panel web ni otras rutas mientras el CPC espera la respuesta del maestro.
+
 ### Endpoints
 
 | Ruta | Uso |
@@ -87,7 +104,7 @@ client/aventura.bas              server/server.py :8080
 | `GET/POST /api/config` | Config LLM + estado (`provider`, `api_base`, key en memoria) |
 | `GET /api/status` | mock / ok |
 | `POST /api/reset` | Reset desde panel |
-| `GET /api/models` | Lista modelos Ollama |
+| `GET /api/models?provider=&api_base=&api_key=` | **Lista modelos de cualquier proveedor** |
 
 CLI: `python server.py --provider gemini --api-key ... --api-base ...`
 
@@ -112,11 +129,28 @@ F:puerta_abierta=1   (opcional)
 
 ---
 
+## Lista de modelos por proveedor (`/api/models`)
+
+`ai_adventure.py → list_provider_models(provider, api_base, api_key, ollama_url)`
+
+| Proveedor | Endpoint consultado | Auth |
+|-----------|---------------------|------|
+| `ollama` | `{host}/api/tags` (derivado de `ollama_url`) | Ninguna |
+| `openai` / `openai_compat` | `{api_base}/models` | `Bearer <key>` |
+| `claude` | `{api_base}/models` + `anthropic-version` | `x-api-key` |
+| `gemini` | `{api_base}/models?key=...` | Query param `key` |
+
+Errores HTTP reales (401, timeout, conexión rechazada) propagan al panel como mensaje legible.  
+Para Ollama, los errores ya no se tragan en silencio — si Ollama está apagado, el panel lo indica.
+
+---
+
 ## Estructura
 
 ```text
 M4/
   README.md
+  LICENSE                 ← MIT (nuevo)
   run_server.bat
   .gitignore
   client/
@@ -125,15 +159,15 @@ M4/
   tools/
     make_title_scr.py       # hero.png → TITLE.SCR (+ preview local)
   server/
-    server.py
-    ai_adventure.py
+    server.py               # _state_lock (rápido) + _turn_lock (LLM)
+    ai_adventure.py         # list_provider_models + AdventureAI
     llm_providers.py        # defaults + mapeo Claude/Gemini
     game_state.py
     save_game.py
     protocol.py
     cpc_text.py
     prompts/master.txt
-    web/ui.html
+    web/ui.html             # selector modelos multi-proveedor
     web/hero.png
     saves/.gitkeep
   tests/
@@ -156,6 +190,7 @@ M4/
 3. Guías jugador + manual técnico  
 4. Multi-proveedor LLM (OpenAI / Claude / Gemini / Compatible) + tooltips UI  
 5. Splash CPC `TITLE.SCR` desde hero + script `make_title_scr.py`  
+6. **Sesión actual:** fixes de calidad + `/api/models` universal + fix concurrencia + selector UI  
 
 ---
 
@@ -189,7 +224,8 @@ Ver `docs/MANUAL.md`, `docs/GUIA_JUGADOR.md`, `docs/CARGA.md`.
 - RSX con variable (`|HTTPGET,@A$`)  
 - API keys solo en memoria del panel (no commitear secretos)  
 - No subir `archivo/`, `server/saves/*.json`, ni `*- copia.png`  
-- Tras cambiar Python: **reiniciar** `server.py` (el HTML `/ui` se lee fresco del disco)
+- **Reiniciar** `server.py` tras cualquier cambio Python (el HTML `/ui` se lee fresco del disco)
+- Dos locks: `_state_lock` (ms) para config/saves, `_turn_lock` (s) solo para LLM — no mezclar
 
 ---
 
@@ -206,20 +242,21 @@ Ver `docs/MANUAL.md`, `docs/GUIA_JUGADOR.md`, `docs/CARGA.md`.
 
 | Archivo | Rol |
 |---------|-----|
-| `server/server.py` | HTTP CPC + API panel + CLI providers |
-| `server/ai_adventure.py` | LLM multi-provider + historial |
+| `server/server.py` | HTTP CPC + API panel + CLI providers + dos locks |
+| `server/ai_adventure.py` | LLM multi-provider + list_provider_models + historial |
 | `server/llm_providers.py` | Defaults, URLs, mapeo Claude/Gemini |
 | `server/game_state.py` | Inventario, lugar, flags |
 | `server/save_game.py` | Persistencia slots 1-3 |
 | `server/protocol.py` | Paquete T/S/E + topes |
-| `server/web/ui.html` | Panel visual CPC |
+| `server/web/ui.html` | Panel visual CPC + selector modelos multi-proveedor |
 | `server/web/hero.png` | Arte panel + fuente del splash |
 | `client/aventura.bas` | Cliente real |
 | `client/TITLE.SCR` | Pantalla titulo MODE 1 |
 | `tools/make_title_scr.py` | Genera TITLE.SCR |
-| `docs/MANUAL.md` | Manual tecnico |
+| `docs/MANUAL.md` | Manual técnico |
 | `docs/GUIA_JUGADOR.md` | Guia sencilla |
 | `docs/CARGA.md` | Carga en hardware |
+| `LICENSE` | MIT |
 
 ---
 

@@ -100,12 +100,111 @@ def repack_llm_text(raw: str) -> str:
 
 
 def list_ollama_models(tags_url: str = "http://127.0.0.1:11434/api/tags") -> list[str]:
+    """Lista modelos disponibles en Ollama local."""
     try:
-        with urllib.request.urlopen(tags_url, timeout=3) as resp:
+        with urllib.request.urlopen(tags_url, timeout=5) as resp:
             data = json.loads(resp.read().decode("utf-8"))
         return [m.get("name", "") for m in data.get("models", []) if m.get("name")]
     except Exception:
         return []
+
+
+def list_provider_models(
+    provider: str,
+    api_base: str = "",
+    api_key: str = "",
+    ollama_url: str = DEFAULT_OLLAMA_CHAT,
+) -> list[str]:
+    """
+    Devuelve la lista de modelos disponibles para el proveedor indicado.
+
+    - ollama      → GET {api/tags}         (sin autenticación)
+    - openai/compat → GET {api_base}/models (Bearer api_key)
+    - claude      → GET https://api.anthropic.com/v1/models (x-api-key)
+    - gemini      → GET {api_base}/models?key=api_key
+    """
+    try:
+        if provider == "ollama":
+            # Derivamos la URL base de Ollama quitando el path de chat
+            base = ollama_url.rstrip("/")
+            for suffix in ("/api/chat", "/v1/chat/completions", "/v1"):
+                if base.endswith(suffix):
+                    base = base[: -len(suffix)]
+                    break
+            tags_url = base.rstrip("/") + "/api/tags"
+            # Hacemos la petición directamente para que los errores (Ollama
+            # apagado, URL incorrecta, timeout) propaguen al except exterior
+            # y lleguen al panel como mensaje legible en lugar de lista vacía.
+            with urllib.request.urlopen(tags_url, timeout=5) as resp:
+                data = json.loads(resp.read().decode("utf-8"))
+            names = [m.get("name", "") for m in data.get("models", []) if m.get("name")]
+            return sorted(names)
+
+        if provider in ("openai", "openai_compat"):
+            if not api_base:
+                from llm_providers import DEFAULTS
+                api_base = DEFAULTS.get(provider, {}).get("api_base", "https://api.openai.com/v1")
+            url = api_base.rstrip("/") + "/models"
+            headers: dict[str, str] = {"Content-Type": "application/json"}
+            if api_key:
+                headers["Authorization"] = f"Bearer {api_key}"
+            req = urllib.request.Request(url, headers=headers)
+            with urllib.request.urlopen(req, timeout=8) as resp:
+                data = json.loads(resp.read().decode("utf-8"))
+            models = [m.get("id", "") for m in data.get("data", []) if m.get("id")]
+            return sorted(models)
+
+        if provider == "claude":
+            from llm_providers import ANTHROPIC_VERSION
+            if not api_base:
+                api_base = "https://api.anthropic.com/v1"
+            url = api_base.rstrip("/") + "/models"
+            headers = {
+                "Content-Type": "application/json",
+                "x-api-key": api_key,
+                "anthropic-version": ANTHROPIC_VERSION,
+            }
+            req = urllib.request.Request(url, headers=headers)
+            with urllib.request.urlopen(req, timeout=8) as resp:
+                data = json.loads(resp.read().decode("utf-8"))
+            # Anthropic devuelve {"data": [...], ...}
+            raw = data.get("data") or []
+            models = [m.get("id", "") for m in raw if m.get("id")]
+            return sorted(models)
+
+        if provider == "gemini":
+            if not api_base:
+                api_base = "https://generativelanguage.googleapis.com/v1beta"
+            url = api_base.rstrip("/") + "/models"
+            if api_key:
+                url += "?key=" + urllib.parse.quote(api_key, safe="")
+            headers = {"Content-Type": "application/json"}
+            req = urllib.request.Request(url, headers=headers)
+            with urllib.request.urlopen(req, timeout=8) as resp:
+                data = json.loads(resp.read().decode("utf-8"))
+            # Gemini devuelve {"models": [{"name": "models/gemini-2.0-flash", ...}]}
+            raw = data.get("models") or []
+            models = []
+            for m in raw:
+                name = m.get("name", "")
+                if name.startswith("models/"):
+                    name = name[len("models/"):]
+                if name:
+                    models.append(name)
+            return sorted(models)
+
+    except urllib.error.HTTPError as exc:
+        detail = ""
+        try:
+            detail = exc.read().decode("utf-8", errors="replace")[:200]
+        except Exception:
+            pass
+        raise RuntimeError(f"HTTP {exc.code}: {detail}") from exc
+    except Exception as exc:
+        raise RuntimeError(str(exc)) from exc
+
+    return []
+
 
 
 class AdventureAI:
@@ -268,7 +367,7 @@ class AdventureAI:
             "stream": False,
             "options": {
                 "temperature": self.temperature,
-                "num_predict": 220,
+                "num_predict": 350,
             },
         }
         data = self._post_json(
@@ -284,7 +383,7 @@ class AdventureAI:
             "model": self.model,
             "messages": self._messages(user_msg),
             "temperature": self.temperature,
-            "max_tokens": 220,
+            "max_tokens": 350,
         }
         headers = {"Content-Type": "application/json"}
         if self.api_key:
@@ -298,7 +397,7 @@ class AdventureAI:
         messages = self._messages(user_msg)
         system = messages[0]["content"] if messages and messages[0]["role"] == "system" else self.system
         payload = build_claude_payload(
-            self.model, system, messages, self.temperature, 220
+            self.model, system, messages, self.temperature, 350
         )
         headers = {
             "Content-Type": "application/json",
@@ -313,7 +412,7 @@ class AdventureAI:
             raise RuntimeError("Falta API key de Gemini. Pegala en el panel y pulsa Guardar.")
         messages = self._messages(user_msg)
         system = messages[0]["content"] if messages and messages[0]["role"] == "system" else self.system
-        payload = build_gemini_payload(system, messages, self.temperature, 220)
+        payload = build_gemini_payload(system, messages, self.temperature, 350)
         url = gemini_url(self.api_base, self.model)
         # Google acepta ?key= (mas compatible) y header x-goog-api-key
         url = f"{url}?key={urllib.parse.quote(self.api_key, safe='')}"
@@ -364,7 +463,10 @@ class AdventureAI:
             raw = self.state.apply_meta_lines(raw)
             packet = repack_llm_text(raw)
             self.history.append({"role": "user", "content": user_msg})
-            self.history.append({"role": "assistant", "content": packet.strip()})
+            # Guardar texto narrativo limpio (no el paquete con metadatos T:/S:/E:)
+            # para que el historial que recibe el LLM sea conversación natural
+            clean_assistant = " ".join(parse_packet(packet)["lines"])
+            self.history.append({"role": "assistant", "content": clean_assistant})
             if len(self.history) > self.max_history * 2:
                 self.history = self.history[-(self.max_history * 2) :]
             self.last_packet = packet

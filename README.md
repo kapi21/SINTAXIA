@@ -184,4 +184,4 @@ python -c "from protocol import build_packet, parse_packet; print(parse_packet(b
 
 ## Licencia
 
-A definir por el mantenedor del repositorio.
+[MIT License](LICENSE) — ver fichero `LICENSE` en la raíz del repositorio.

@@ -2,7 +2,7 @@
 
 **Aventura conversacional con IA para Amstrad CPC + M4 Board**
 
-Versión del manual: 2026-08-02  
+Versión del manual: 2026-08-02 v2  
 Repositorio: https://github.com/kapi21/SINTAXIA
 
 ---
@@ -260,19 +260,20 @@ El panel imita un monitor CPC (borde azul, tipografia pixel, arte hero).
 | **Estado (READY…)** | Indica si el servidor responde, modo actual (MOCK / OLLAMA / OPENAI), modelo e historial corto (`H`). |
 | **Modo → IA (LLM)** | Usa el proveedor y modelo configurados. |
 | **Modo → Mock (sin IA)** | No llama al LLM. Respuestas fijas si detecta palabras (`cueva`, `espada`, `atacar`, `tesoro`…). Ideal para probar red y sonido. |
-| **Proveedor → Ollama (local)** | API nativa de Ollama (`/api/chat`). |
+| **Proveedor → Ollama (local)** | API nativa de Ollama (`/api/chat`). Al seleccionar, carga modelos locales automáticamente. |
 | **Proveedor → OpenAI** | API oficial `https://api.openai.com/v1` + API key. |
 | **Proveedor → Claude** | Anthropic Messages API + API key (`x-api-key`). |
-| **Proveedor → Gemini** | Google Generative Language + API key (`x-goog-api-key`). Habla directo con Gemini. |
+| **Proveedor → Gemini** | Google Generative Language + API key. |
 | **Proveedor → Compatible** | Cualquier servidor tipo OpenAI (`/v1/chat/completions`: LM Studio, Ollama `/v1`, proxies…). |
-| **Modelo** | Id del modelo (`llama3.1:8b`, `gpt-4o-mini`, `claude-haiku-4-5`, `gemini-2.0-flash`…). **Modelos** solo lista desde Ollama. |
+| **Selector de Modelo** | Desplegable que se rellena al pulsar **Modelos ↺** o al cambiar proveedor. Al elegir uno se copia al campo de texto. |
+| **Modelo (texto)** | Escribe el id del modelo a mano si no aparece en el selector (`llama3.1:8b`, `gpt-4o-mini`, `claude-haiku-4-5`, `gemini-2.0-flash`…). Tiene prioridad sobre el selector. |
 | **Temperatura** | 0.0–2.0. Bajo = mas predecible; alto = mas inventivo (y a veces mas caotico). |
 | **URL Ollama chat** | Por defecto `http://127.0.0.1:11434/api/chat`. Cambiala solo si Ollama esta en otra maquina/puerto. |
 | **Base API** | URL base del proveedor cloud o compatible. Al cambiar proveedor el panel rellena un valor tipico. |
-| **API key** | Clave OpenAI / Anthropic / Google. Solo en **memoria** del servidor. No hace falta con Ollama local. |
+| **API key** | Clave OpenAI / Anthropic / Google. Solo en **memoria** del servidor. No hace falta con Ollama local. Al pegar la key, el panel carga los modelos automáticamente (debounce 700ms). |
 | **System prompt** | Instrucciones del Master (formato `T:/S:/E:`, limites de texto, metadatos `I:/L:/F:`…). Puedes editarlo y pulsar **Guardar**. |
-| **Guardar** | Aplica en el servidor la config del formulario (modo, proveedor, modelo, temperatura, URLs, prompt, key si la escribiste). |
-| **Modelos** | Solo con Ollama: consulta `/api/tags` y rellena el desplegable. En cloud: escribe el modelo a mano. |
+| **Guardar** | Aplica en el servidor la config del formulario (modo, proveedor, modelo, temperatura, URLs, prompt, key si la escribiste). Tras guardar recarga los modelos disponibles. |
+| **Modelos ↺** | Consulta la API del proveedor actual y rellena el selector con los modelos disponibles. Para OpenAI/Claude/Gemini necesita la API key en el campo (o ya guardada en el servidor). |
 | **Nueva** | Reinicia historial + inventario/lugar/flags (nueva partida). Equivale a `/reset`. |
 | **Refresh** | Recarga estado mostrado sin cambiar config. |
 
@@ -296,10 +297,11 @@ El panel imita un monitor CPC (borde azul, tipografia pixel, arte hero).
 
 1. Arranca el servidor.
 2. Abre `/ui`.
-3. Elige **IA** + **Ollama** + tu modelo → **Guardar**.
-4. Opcional: **Modelos** para ver lo instalado.
-5. Deja el panel abierto mientras juegas en el CPC: veras el ultimo paquete y el inventario actualizarse.
-6. Usa **Guardar/Cargar** slot cuando quieras pausar la aventura.
+3. Elige **IA** + **Ollama** → el selector de modelos se rellena automáticamente → elige modelo → **Guardar**.
+4. Para OpenAI/Claude/Gemini: elige proveedor → pega la **API key** (el panel carga modelos solos tras 0,7 s) → elige modelo del selector → **Guardar**.
+5. O pulsa **Modelos ↺** en cualquier momento para recargar la lista.
+6. Deja el panel abierto mientras juegas en el CPC: veras el ultimo paquete y el inventario actualizarse.
+7. Usa **Guardar/Cargar** slot cuando quieras pausar la aventura.
 
 ---
 
@@ -442,6 +444,9 @@ Si cargas un slot vacio: mensaje de error (`E:1`).
 | Mock siempre igual | Es normal sin palabras clave; cambia a modo IA |
 | `RUN"aventura` no carga | Tokeniza el BASIC en emulador o teclea y `SAVE` |
 | Load no restaura en CPC | El load afecta al **servidor**; el siguiente turno en CPC ya usa ese estado |
+| Panel no responde / congelado | Reinicia `server.py`; en sesiones antiguas el lock bloqueaba el panel durante el turno LLM — resuelto en v2 |
+| Selector modelos vacio (Ollama) | Ollama debe estar arriba; pulsa **Modelos ↺**; mira consola del servidor para el error exacto |
+| Selector modelos vacio (cloud) | Introduce la API key → espera 1 s → se cargan solos; o pulsa **Modelos ↺** con la key en el campo |
 
 ### Prueba minima de red desde el CPC
 

@@ -26,13 +26,17 @@
 230 GOSUB 3000:REM mostrar T$
 240 GOSUB 9000:REM sonido
 250 GOTO 100
-1000 REM --- encode espacio->+ ---
+1000 REM --- encode URL: espacio->+ resto especial->omitir ---
 1010 U$=""
 1020 FOR I=1 TO LEN(M$)
 1030 C$=MID$(M$,I,1)
-1040 IF C$=" " THEN C$="+"
-1050 IF C$="&" OR C$="?" OR C$="#" THEN 1080
-1060 IF C$=">" OR C$="@" OR C$="|" THEN 1080
+1040 IF C$=" " THEN C$="+":U$=U$+C$:GOTO 1080
+1042 REM omitir chars que rompen la URL o el |HTTPGET de la M4
+1044 IF C$="&" OR C$="?" OR C$="#" THEN 1080
+1046 IF C$=">" OR C$="@" OR C$="|" THEN 1080
+1048 IF C$="%" OR C$="=" OR C$="[" OR C$="]" THEN 1080
+1050 IF C$="{" OR C$="}" OR C$="^" OR C$="~" THEN 1080
+1052 IF C$="`" OR C$=";" OR C$="," THEN 1080
 1070 U$=U$+C$
 1080 NEXT
 1090 IF LEN(U$)>80 THEN U$=LEFT$(U$,80)

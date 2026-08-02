@@ -18,17 +18,27 @@ from __future__ import annotations
 import argparse
 import json
 import re
+import threading
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from urllib.parse import parse_qs, unquote_plus, urlparse
 
-from ai_adventure import DEFAULT_MODEL, AdventureAI, list_ollama_models
+from ai_adventure import DEFAULT_MODEL, AdventureAI, list_ollama_models, list_provider_models
 from protocol import build_packet, packet_from_text, parse_packet
 from save_game import list_slots, load_slot, save_slot, validate_slot
 
 HOST = "0.0.0.0"
 PORT = 8080
 WEB_DIR = Path(__file__).resolve().parent / "web"
+
+# _state_lock: protege lecturas/escrituras de config, mock, reset, saves.
+# Solo para operaciones RAPIDAS (milisegundos).
+_state_lock = threading.Lock()
+
+# _turn_lock: serializa las llamadas al LLM (que pueden tardar 10-120 s).
+# Independiente de _state_lock para que el panel web siga respondiendo
+# mientras el CPC espera la respuesta del maestro.
+_turn_lock = threading.Lock()
 
 _MOCK_RULES: list[tuple[tuple[str, ...], str, int]] = [
     (("cueva", "caverna", "oscuro"), "Entras en una cueva oscura. El eco responde a tus pasos.", 2),
@@ -46,18 +56,26 @@ _last_mock_user = ""
 
 
 def turn_reply(user_msg: str) -> str:
-    ai = ensure_ai()
-    low = (user_msg or "").strip().lower()
-    if low in ("inventario", "inv", "i", "objetos"):
-        return ai.inventory_packet()
+    # 1) Bloqueo rapido: comandos locales + decidir si es LLM o mock
+    with _state_lock:
+        ai = ensure_ai()
+        low = (user_msg or "").strip().lower()
 
-    local = handle_save_load_command(ai, low)
-    if local is not None:
-        return local
+        if low in ("inventario", "inv", "i", "objetos"):
+            return ai.inventory_packet()
 
-    if _use_mock or _ai is None:
-        return mock_reply(user_msg)
-    return ai.turn(user_msg)
+        local = handle_save_load_command(ai, low)
+        if local is not None:
+            return local
+
+        if _use_mock or _ai is None:
+            return mock_reply(user_msg)
+
+    # 2) Llamada al LLM fuera del _state_lock para no congelar el servidor.
+    #    _turn_lock serializa las llamadas (evita que dos turnos corran a la vez)
+    #    pero permite que /ping, /api/config, /api/models, etc. respondan siempre.
+    with _turn_lock:
+        return ai.turn(user_msg)
 
 
 def handle_save_load_command(ai: AdventureAI, low: str) -> str | None:
@@ -220,16 +238,40 @@ class AdventureHandler(BaseHTTPRequestHandler):
             return
 
         if path == "/api/config":
-            ai = ensure_ai()
-            cfg = ai.config_dict()
-            if _use_mock:
-                cfg["last_user"] = _last_mock_user or cfg.get("last_user", "")
-                cfg["last_packet"] = _last_mock_packet or cfg.get("last_packet", "")
+            with _state_lock:
+                ai = ensure_ai()
+                cfg = ai.config_dict()
+                if _use_mock:
+                    cfg["last_user"] = _last_mock_user or cfg.get("last_user", "")
+                    cfg["last_packet"] = _last_mock_packet or cfg.get("last_packet", "")
             self._send_json(cfg)
             return
 
         if path == "/api/models":
-            self._send_json({"models": list_ollama_models()})
+            provider = qs.get("provider", ["ollama"])[0]
+            api_base  = unquote_plus(qs.get("api_base", [""])[0])
+            api_key   = unquote_plus(qs.get("api_key",  [""])[0])
+            # Si no nos pasan api_key pero el AI ya tiene una cargada, la usamos
+            with _state_lock:
+                ai_now = ensure_ai()
+                if not api_key and ai_now.api_key:
+                    api_key = ai_now.api_key
+                if not api_base and ai_now.api_base:
+                    api_base = ai_now.api_base
+                ollama_url = ai_now.ollama_url
+            print(f"MODELS provider={provider!r} api_base={api_base!r} ollama_url={ollama_url!r} key={'*' if api_key else '(none)'}")
+            try:
+                models = list_provider_models(
+                    provider=provider,
+                    api_base=api_base,
+                    api_key=api_key,
+                    ollama_url=ollama_url,
+                )
+                print(f"MODELS ok → {len(models)} modelos")
+                self._send_json({"ok": True, "models": models, "provider": provider})
+            except Exception as exc:
+                print(f"MODELS error: {exc}")
+                self._send_json({"ok": False, "models": [], "error": str(exc), "provider": provider})
             return
 
         if path == "/api/saves":
@@ -237,16 +279,18 @@ class AdventureHandler(BaseHTTPRequestHandler):
             return
 
         if path == "/ping":
-            mode = "mock" if _use_mock else "ollama"
-            if not _use_mock and _ai is not None:
-                mode = _ai.provider
+            with _state_lock:
+                mode = "mock" if _use_mock else "ollama"
+                if not _use_mock and _ai is not None:
+                    mode = _ai.provider
             body = packet_from_text(f"OK servidor {mode}", sound=0, error=0)
             self._send_plain(body)
             return
 
         if path == "/reset":
-            if _ai is not None:
-                _ai.reset()
+            with _state_lock:
+                if _ai is not None:
+                    _ai.reset()
             body = packet_from_text("Nueva partida. Estas en el castillo.", sound=0, error=0)
             self._send_plain(body)
             return
@@ -281,57 +325,61 @@ class AdventureHandler(BaseHTTPRequestHandler):
 
         if path == "/api/config":
             data = self._read_json()
-            if "mock" in data:
-                _use_mock = bool(data["mock"])
-            ai = ensure_ai()
-            ai.apply_config(data)
-            cfg = ai.config_dict()
-            cfg["mock"] = _use_mock
+            with _state_lock:
+                if "mock" in data:
+                    _use_mock = bool(data["mock"])
+                ai = ensure_ai()
+                ai.apply_config(data)
+                cfg = ai.config_dict()
+                cfg["mock"] = _use_mock
             print(f"CONFIG mock={_use_mock} provider={ai.provider} model={ai.model}")
             self._send_json({"ok": True, "config": cfg})
             return
 
         if path == "/api/reset":
-            if _ai is not None:
-                _ai.reset()
-            body = packet_from_text("Nueva partida. Estas en el castillo.", sound=0, error=0)
-            if _ai is not None:
-                _ai.last_packet = body
-                _ai.last_user = "(reset)"
+            with _state_lock:
+                if _ai is not None:
+                    _ai.reset()
+                body = packet_from_text("Nueva partida. Estas en el castillo.", sound=0, error=0)
+                if _ai is not None:
+                    _ai.last_packet = body
+                    _ai.last_user = "(reset)"
             self._send_json({"ok": True, "packet": body})
             return
 
         if path == "/api/save":
             data = self._read_json()
-            ai = ensure_ai()
-            try:
-                slot = validate_slot(data.get("slot", 1))
-                name = data.get("name")
-                payload = save_slot(ai, slot, name=str(name) if name else None)
-                self._send_json({"ok": True, "save": payload, "slots": list_slots()})
-            except Exception as exc:
-                self._send_json({"ok": False, "error": str(exc)}, 400)
+            with _state_lock:
+                ai = ensure_ai()
+                try:
+                    slot = validate_slot(data.get("slot", 1))
+                    name = data.get("name")
+                    payload = save_slot(ai, slot, name=str(name) if name else None)
+                    self._send_json({"ok": True, "save": payload, "slots": list_slots()})
+                except Exception as exc:
+                    self._send_json({"ok": False, "error": str(exc)}, 400)
             return
 
         if path == "/api/load":
             data = self._read_json()
-            ai = ensure_ai()
-            try:
-                slot = validate_slot(data.get("slot", 1))
-                payload = load_slot(ai, slot)
-                self._send_json(
-                    {
-                        "ok": True,
-                        "save": payload,
-                        "state": ai.state.to_dict(),
-                        "packet": ai.last_packet,
-                        "slots": list_slots(),
-                    }
-                )
-            except FileNotFoundError as exc:
-                self._send_json({"ok": False, "error": str(exc)}, 404)
-            except Exception as exc:
-                self._send_json({"ok": False, "error": str(exc)}, 400)
+            with _state_lock:
+                ai = ensure_ai()
+                try:
+                    slot = validate_slot(data.get("slot", 1))
+                    payload = load_slot(ai, slot)
+                    self._send_json(
+                        {
+                            "ok": True,
+                            "save": payload,
+                            "state": ai.state.to_dict(),
+                            "packet": ai.last_packet,
+                            "slots": list_slots(),
+                        }
+                    )
+                except FileNotFoundError as exc:
+                    self._send_json({"ok": False, "error": str(exc)}, 404)
+                except Exception as exc:
+                    self._send_json({"ok": False, "error": str(exc)}, 400)
             return
 
         self._send_json({"ok": False, "error": "not found"}, 404)

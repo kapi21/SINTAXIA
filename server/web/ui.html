@@ -407,10 +407,17 @@
             <div class="row">
               <div>
                 <label for="model" data-tip-title="MODELO"
-                       data-tip="Nombre del cerebro que narra (ej. llama3.1:8b). Debe estar instalado en Ollama o disponible en tu API.">Modelo</label>
-                <input id="model" list="modelList" placeholder="llama3.1:8b"
-                       data-tip-title="MODELO"
-                       data-tip="Nombre del cerebro que narra (ej. llama3.1:8b). Debe estar instalado en Ollama o disponible en tu API." />
+                       data-tip="Modelo del proveedor seleccionado. Pulsa 'Modelos' para cargar la lista disponible o escribe el id a mano.">Modelo</label>
+                <div style="display:flex;gap:0.3rem;align-items:center">
+                  <select id="modelSelect" style="flex:1;min-width:0"
+                          data-tip-title="MODELO"
+                          data-tip="Modelos disponibles del proveedor. Se cargan al pulsar 'Modelos' o al cambiar proveedor.">
+                    <option value="">-- elige o escribe abajo --</option>
+                  </select>
+                </div>
+                <input id="model" list="modelList" placeholder="llama3.1:8b" style="margin-top:0.25rem"
+                       data-tip-title="MODELO (manual)"
+                       data-tip="Puedes escribir el id del modelo aqui si no aparece en la lista. Tiene prioridad sobre el selector." />
                 <datalist id="modelList"></datalist>
               </div>
               <div>
@@ -447,7 +454,7 @@
                       data-tip="Aplica en el servidor el modo, proveedor, modelo, temperatura, URLs, clave y prompt. Sin esto, los cambios no cuentan.">Guardar</button>
               <button id="btnModels"
                       data-tip-title="MODELOS"
-                      data-tip="Con Ollama: lista modelos instalados. Con OpenAI/Claude/Gemini/Compatible: escribe el id del modelo a mano.">Modelos</button>
+                      data-tip="Consulta la API del proveedor actual y carga los modelos disponibles en el selector. Necesita api_key si es OpenAI/Claude/Gemini.">Modelos ↺</button>
               <button class="danger" id="btnReset"
                       data-tip-title="NUEVA PARTIDA"
                       data-tip="Borra el estado actual (lugar, inventario, historia) y empieza de cero. No borra los slots guardados.">Nueva</button>
@@ -662,6 +669,82 @@
         api_base: "http://127.0.0.1:11434/v1",
       },
     };
+
+    // Proveedores que requieren API key para listar modelos
+    const NEEDS_KEY = new Set(["openai", "claude", "gemini"]);
+
+    async function loadModels(silent, forceKey) {
+      const provider = $("provider").value;
+      // Usar forceKey (pasada explícitamente) o leer del campo
+      const rawKey  = forceKey !== undefined ? forceKey : $("api_key").value.trim();
+      const rawBase = $("api_base").value.trim();
+      const sel     = $("modelSelect");
+      const btn     = $("btnModels");
+      const prevText = btn.textContent;
+
+      // Si el proveedor requiere key y no tenemos ninguna ni en campo ni guardada,
+      // mostramos un aviso en el select en lugar de lanzar una llamada condenada al fracaso
+      const keyPlaceholder = $("api_key").placeholder;
+      const keyOnServer = keyPlaceholder === "(guardada)";
+      if (NEEDS_KEY.has(provider) && !rawKey && !keyOnServer) {
+        sel.innerHTML = "<option value=''>Introduce API key y pulsa ↺</option>";
+        if (!silent) toast("Introduce la API key primero");
+        return;
+      }
+
+      btn.textContent = "Cargando\u2026";
+      btn.disabled = true;
+      sel.innerHTML = "<option value=''>Cargando\u2026</option>";
+
+      try {
+        const url = "/api/models"
+          + "?provider=" + encodeURIComponent(provider)
+          + "&api_base=" + encodeURIComponent(rawBase)
+          + "&api_key="  + encodeURIComponent(rawKey);
+        const data = await api(url);
+        const models = data.models || [];
+
+        if (data.ok === false && data.error) {
+          // Error devuelto por el servidor (401, timeout, etc.)
+          sel.innerHTML = "<option value=''>ERROR: " + data.error.slice(0, 60) + "</option>";
+          if (!silent) toast("ERROR: " + data.error);
+          return;
+        }
+
+        // Rellena el <select>
+        const prev = sel.value || $("model").value;
+        sel.innerHTML = models.length
+          ? "<option value=''>-- elige modelo --</option>"
+          : "<option value=''>(sin modelos)</option>";
+        models.forEach(m => {
+          const o = document.createElement("option");
+          o.value = m;
+          o.textContent = m;
+          if (m === prev) o.selected = true;
+          sel.appendChild(o);
+        });
+        // Rellena datalist para autocompletar el input manual
+        const list = $("modelList");
+        list.innerHTML = "";
+        models.forEach(m => {
+          const o = document.createElement("option");
+          o.value = m;
+          list.appendChild(o);
+        });
+        // Si el select tiene el modelo actual, sincroniza el input
+        if (sel.value) $("model").value = sel.value;
+        if (!silent) toast(models.length + " MODELOS " + provider.toUpperCase());
+
+      } catch (e) {
+        sel.innerHTML = "<option value=''>Error de red: " + String(e).slice(0, 50) + "</option>";
+        if (!silent) toast("ERROR: " + e);
+      } finally {
+        btn.textContent = prevText;
+        btn.disabled = false;
+      }
+    }
+
+    // Al cambiar proveedor: aplicar preset y disparar carga de modelos
     $("provider").addEventListener("change", () => {
       const p = $("provider").value;
       const preset = PROVIDER_PRESETS[p];
@@ -669,7 +752,26 @@
       if (preset.model) $("model").value = preset.model;
       if (preset.api_base !== undefined) $("api_base").value = preset.api_base;
       if (preset.ollama_url) $("ollama_url").value = preset.ollama_url;
+      // Intentar carga — si falta key mostrará aviso en el select
+      loadModels(true);
     });
+
+    // Cuando el usuario elige del selector, rellena el input manual
+    $("modelSelect").addEventListener("change", () => {
+      const v = $("modelSelect").value;
+      if (v) $("model").value = v;
+    });
+
+    // Cuando el usuario pega o teclea la API key → debounce 700ms → carga automática
+    let _keyDebounce = null;
+    $("api_key").addEventListener("input", () => {
+      clearTimeout(_keyDebounce);
+      _keyDebounce = setTimeout(() => {
+        const key = $("api_key").value.trim();
+        if (key) loadModels(true, key);
+      }, 700);
+    });
+
     function fill(cfg, status) {
       $("mode").value = status.mock ? "mock" : "ai";
       $("provider").value = cfg.provider || "ollama";
@@ -707,8 +809,11 @@
       const cfg = await api("/api/config");
       fill(cfg, status);
       await refreshSaves();
+      // Carga silenciosa de modelos (usa la key del servidor si está guardada)
+      loadModels(true);
     }
     $("btnRefresh").onclick = () => refresh().catch(e => toast(String(e)));
+    $("btnModels").onclick = () => loadModels(false);
     $("btnSave").onclick = async () => {
       const body = {
         mock: $("mode").value === "mock",
@@ -720,9 +825,9 @@
         openai_base: $("api_base").value,
         system: $("system").value,
       };
-      const key = $("api_key").value;
+      const key = $("api_key").value.trim();
       if (key) body.api_key = key;
-      const needsKey = ["openai", "claude", "gemini"].includes(body.provider);
+      const needsKey = NEEDS_KEY.has(body.provider);
       if (needsKey && !key && $("api_key").placeholder !== "(guardada)") {
         toast("PEGA LA API KEY");
         return;
@@ -733,7 +838,11 @@
         body: JSON.stringify(body),
       });
       toast("CONFIG OK");
+      // Guardamos la key antes de que fill() la limpie para pasarla a loadModels
+      const savedKey = key;
       await refresh();
+      // Si habíamos metido una key nueva, recargar modelos con ella
+      if (savedKey) loadModels(false, savedKey);
     };
     $("btnReset").onclick = async () => {
       await api("/api/reset", { method: "POST" });
@@ -763,21 +872,7 @@
       toast("LOAD " + slot);
       await refresh();
     };
-    $("btnModels").onclick = async () => {
-      if ($("provider").value !== "ollama") {
-        toast("Escribe el modelo a mano");
-        return;
-      }
-      const data = await api("/api/models");
-      const list = $("modelList");
-      list.innerHTML = "";
-      (data.models || []).forEach(m => {
-        const o = document.createElement("option");
-        o.value = m;
-        list.appendChild(o);
-      });
-      toast((data.models || []).length + " MODELOS");
-    };
+    $("btnModels").onclick = () => loadModels(false);
     $("btnTest").onclick = async () => {
       const msg = encodeURIComponent($("testMsg").value || "miro alrededor");
       const text = await api("/turn?msg=" + msg);
