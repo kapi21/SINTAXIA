@@ -1,200 +1,204 @@
 # SINTAXIA — Handoff de sesión
 
-**Fecha:** 2026-08-02  
+**Fecha:** 2026-08-02 (actualizado tarde)  
 **Workspace local:** `C:\@MIS PROYECTOS\M4`  
 **Repo GitHub:** https://github.com/kapi21/SINTAXIA  
+**Branch / HEAD:** `main` @ `f23d533` (hero en README)
 
 ---
 
 ## Estado
 
 - **Proyecto:** SINTAXIA — motor de aventura conversacional con IA para Amstrad CPC + M4 Board
-- **Hecho:** PoC jugable punta a punta (mock → Ollama), cliente BASIC con AY, protocolo `T:/S:/E:`, repo ordenado y publicado
-## Pendiente (roadmap)
-- ~~Ambiente visual CPC (intro + ping + paleta + borde)~~ → `client/aventura.bas`
-- ~~Sonidos AY ricos (ENV/ENT)~~ → envolventes 1-5 + ruido en combate
-- ~~Panel web PC (Ollama vs API)~~ → `http://127.0.0.1:8080/ui`
-- ~~Push estructura `client/`/`server/` a GitHub~~ → hecho
-- ~~Inventario/estado~~ → `server/game_state.py` + panel + comando `INV`
-- Pulir coherencia LLM con flags/lugares; saves opcionales
-
-- **Cómo verificar:** `run_server.bat` + `curl http://127.0.0.1:8080/ping` + `RUN"aventura` en CPC
-- **Riesgos:** IP PC hardcodeada en BASIC; Ollama debe estar arriba; firewall 8080; `.bas` ASCII puede necesitar tokenizar en emulador
+- **Hecho:** PoC completo y publicado: cliente BASIC, servidor HTTP, Ollama/API, panel web estilo CPC, inventario/estado, README con arte hero
+- **Pendiente:**
+  - Pulir coherencia LLM con flags/lugares
+  - Guardar/cargar partida (opcional)
+  - Cliente TCP Z80 (largo plazo)
+- **Cómo verificar:** `run_server.bat` → http://127.0.0.1:8080/ui → CPC `RUN"aventura`
+- **Riesgos:** IP PC hardcodeada en BASIC (`P$`); Ollama en `:11434`; firewall 8080; `.bas` ASCII puede necesitar tokenizar; tope texto CPC ~6×40 / 255 chars
 
 ---
 
-## Objetivo del proyecto
+## Objetivo
 
 Conectar un **Amstrad CPC real** a un LLM vía **M4 Board (Wi‑Fi)**:
 
-1. El jugador escribe en lenguaje natural en el CPC  
-2. Un servidor Python en el PC habla con **Ollama** (o modo mock)  
-3. La respuesta vuelve empaquetada para ROM CPC (40 cols, ASCII, CRLF)  
-4. El BASIC imprime texto y dispara `SOUND` en el chip **AY‑3‑8912**
-
-Inspiración: aventuras conversacionales españolas de los 80, con parser sustituido por IA.
+1. Jugador escribe en lenguaje natural en el CPC  
+2. Servidor Python en el PC → Ollama / API OpenAI-compatible / mock  
+3. Respuesta empaquetada CPC-safe (40 cols, ASCII, CRLF)  
+4. BASIC imprime texto + `SOUND`/`ENV`/`ENT` en **AY‑3‑8912**  
+5. Estado (inventario, lugar, flags) en el PC; comando `INV` en el CPC  
 
 ---
 
-## Red actual (PoC)
+## Red PoC
 
 | Nodo | IP / puerto |
 |------|-------------|
 | Gateway | `192.168.1.1` |
 | PC (servidor) | `192.168.1.4` |
 | M4 / CPC | `192.168.1.128` |
-| HTTP juego | puerto **8080** |
+| HTTP | **8080** |
 | Ollama | `127.0.0.1:11434` |
-| Modelo por defecto | `llama3.1:8b` |
+| Modelo default | `llama3.1:8b` |
 
-Si cambia la IP del PC, editar la URL en `client/aventura.bas` (línea del `|HTTPGET`).
+Cambiar IP del PC → variable `P$` al inicio de `client/aventura.bas`.
 
 ---
 
 ## Arquitectura
 
 ```text
-CPC + M4                    PC
-client/aventura.bas         server/server.py :8080
-  INPUT ──HTTP GET──────►   ai_adventure.py → Ollama
-  |HTTPGET → RESP.TXT ◄──   protocol + cpc_text
-  parse T:/S:/E:
-  PRINT + GOSUB SOUND
+CPC + M4                         PC
+client/aventura.bas              server/server.py :8080
+  intro + ping /ui ◄───────────  web/ui.html (panel CPC-style)
+  INPUT ──HTTP GET /turn──────►  ai_adventure.py → LLM
+  |HTTPGET → RESP.TXT            game_state.py (I/L/F)
+  parse T:/S:/E:                 protocol.py + cpc_text.py
+  BORDER + SOUND AY
+  INV / NUEVA / AYUDA / QUIT
 ```
 
-**Transporte elegido:** HTTP (`|HTTPGET` / `|HTTPMEM`), no TCP crudo en ASM (fase futura).
+**Transporte:** HTTP (`|HTTPGET`). TCP/ASM = futuro.
 
-**Endpoints:**
+### Endpoints
 
-| Ruta | Función |
-|------|---------|
-| `GET /ping` | Salud (`OK servidor ollama\|mock`) |
-| `GET /turn?msg=...` | Turno de juego |
-| `GET /reset` | Limpia historial de la IA |
+| Ruta | Uso |
+|------|-----|
+| `GET /ui` | Panel web (estilo CPC + hero.png) |
+| `GET /assets/hero.png` | Arte del panel / README |
+| `GET /ping` | Salud (CPC intro) |
+| `GET /turn?msg=` | Turno / `inventario` |
+| `GET /reset` | Nueva partida |
+| `GET/POST /api/config` | Config LLM + estado |
+| `GET /api/status` | mock / ok |
+| `POST /api/reset` | Reset desde panel |
+| `GET /api/models` | Lista modelos Ollama |
 
 ---
 
-## Protocolo de paquete
+## Protocolo
 
 ```text
-T:linea1|linea2|linea3
+T:linea1|linea2|...
 S:2
 E:0
+I:+antorcha          (opcional, solo PC)
+L:pasillo norte      (opcional)
+F:puerta_abierta=1   (opcional)
 ```
 
-- `T:` texto; líneas ≤40; separador `|`
-- `S:` 0=neutro, 1=peligro, 2=ambiente, 3=objeto, 4=combate, 5=victoria
-- `E:` 0 ok / 1 error
-- **CRLF obligatorio** (`\r\n`): el CPC `LINE INPUT` corta en CR; solo LF provocaba `ERROR:` y basura tipo `:0 :0: :4`
+- Al CPC solo importan **T/S/E** (CRLF).  
+- **I/L/F** los consume `game_state.py` y se quitan antes del display CPC.  
+- Topes: **40** cols, **máx. 6** líneas, cuerpo `T:` ≤ **250** (límite string CPC ~255). Corte → `...`
+
+**S:** 0 neutro · 1 peligro · 2 ambiente · 3 objeto · 4 combate · 5 victoria  
 
 ---
 
-## Estructura de carpetas (local)
+## Estructura
 
 ```text
 M4/
-  README.md
+  README.md                 # incluye hero centrado
   run_server.bat
   .gitignore
-  client/aventura.bas
+  client/aventura.bas       # MODE 1, intro, ping, AY, INV/NUEVA
   server/
     server.py
     ai_adventure.py
+    game_state.py
     protocol.py
     cpc_text.py
     prompts/master.txt
-    __init__.py
+    web/ui.html
+    web/hero.png            # arte pixel CPC (también en README)
   tests/
   docs/
     CARGA.md
-    SINTAXIA_HANDOFF.md   ← este archivo
-    superpowers/plans/2026-08-02-aventura-ia-m4.md
-  archivo/                ← material local, NO en Git
-    docs_m4/  fotos/  carcasas/  rulezcharge/
+    SINTAXIA_HANDOFF.md     ← este archivo
+    superpowers/plans/…     # gitignored
+  archivo/                  # local only (docs M4, fotos, carcasas…)
 ```
 
-**En GitHub solo va el motor** (no `archivo/`, no planes internos si están gitignored).
-
-Tras reorganizar carpetas, **aún no se ha hecho push** de la nueva estructura; el repo remoto puede seguir con ficheros en la raíz antigua hasta el próximo push.
+Repo público: https://github.com/kapi21/SINTAXIA — layout `client/` + `server/` ya pusheado.
 
 ---
 
-## Qué se implementó (cronología)
+## Cronología (resumen)
 
-1. **Red M4:** Wi‑Fi OK en `192.168.1.128`; PC `192.168.1.4`
-2. **Plan** HTTP vs TCP → HTTP; plan en `docs/superpowers/plans/…`
-3. **Fase 1:** `protocol` + `cpc_text` + servidor mock `:8080`
-4. **Fase 2–3:** `aventura.bas` (`|HTTPGET` → `RESP.TXT`, parseo, SOUND 0–5)
-5. **Bug CRLF:** corregido en servidor + parser BASIC defensivo
-6. **Fase 4:** Ollama (`ai_adventure.py`), historial corto, fallback error, `--mock`
-7. **Nombre/repo:** SINTAXIA → push inicial a `kapi21/SINTAXIA`
-8. **Ordenación local:** `client/`, `server/`, `archivo/`, `docs/`, `run_server.bat`
+1. M4 en Wi‑Fi `192.168.1.128`  
+2. PoC HTTP mock + BASIC + SOUND  
+3. Fix CRLF (`LINE INPUT` CPC)  
+4. Ollama + reempaquetado  
+5. Repo SINTAXIA; reorg carpetas; panel `/ui` estilo CPC + hero  
+6. Topes de texto 6 líneas / 250 chars  
+7. Inventario/estado (`INV`, panel, meta I/L/F)  
+8. Hero en README GitHub (`f23d533`)  
+
+**Commits recientes:** `671d037` panel/layout · `d14a2c0` estado · `f23d533` README art  
 
 ---
 
-## Cómo arrancar (siguiente sesión)
+## Arranque (siguiente sesión)
 
 ### PC
 ```powershell
 cd "C:\@MIS PROYECTOS\M4"
-# Ollama debe responder en :11434
 .\run_server.bat
-# o: .\run_server.bat --mock
-```
-
-### Comprobar
-```powershell
-Invoke-WebRequest http://127.0.0.1:8080/ping -UseBasicParsing
-Invoke-WebRequest "http://127.0.0.1:8080/turn?msg=miro+alrededor" -UseBasicParsing
+# Panel: http://127.0.0.1:8080/ui
+# LAN:   http://192.168.1.4:8080/ui
 ```
 
 ### CPC
-1. Copiar `client/aventura.bas` a la SD (tokenizar en emulador si hace falta)
-2. `|NETSTAT` → `RUN"aventura`
-3. Nueva partida IA: abrir `http://192.168.1.4:8080/reset` en el PC
+1. Copiar `client/aventura.bas` a la SD (tokenizar si hace falta)  
+2. `|NETSTAT` → `RUN"aventura`  
+3. Comandos: `AYUDA`, `NUEVA`, `INV`, `QUIT`  
 
-Detalle extra: `docs/CARGA.md`.
-
----
-
-## Decisiones de diseño a respetar
-
-- Texto CPC-safe: sin tildes/ñ; wrap 40; respuestas cortas
-- El PC **siempre** reempaqueta la salida del LLM (`repack_llm_text`)
-- Sonido: el PC envía código; la tabla `SOUND` vive en BASIC
-- BASIC 1.0-friendly: RSX vía variable (`|HTTPGET,@A$`)
-- YAGNI PoC: una sesión en memoria, sin inventario complejo
+Ver también `docs/CARGA.md`.
 
 ---
 
-## Próximos pasos sugeridos (priorizados)
+## Decisiones a respetar
 
-1. **Push** de la estructura nueva a GitHub (`client/`, `server/`, …)
-2. Ambiente visual CPC: `INK`/`BORDER`/`PAPER`, intro, borde según `S:`
-3. Sonidos AY con `ENV`/`ENT` / ruido en combate
-4. Panel web en el PC: elegir Ollama vs API OpenAI-compatible, modelo, reset
-5. Comando `NUEVA` en BASIC → `/reset`
-6. (Largo plazo) cliente TCP Z80 / `C_NET*`
+- MODE **1** (no MODE 2) salvo decisión explícita  
+- HTTP, no TCP en el PoC  
+- PC reempaqueta siempre (`repack_llm_text`)  
+- Sonido: código en PC, tabla AY en BASIC  
+- RSX con variable (`|HTTPGET,@A$`)  
+- API keys solo en memoria del panel (no commitear secretos)  
+- No subir `archivo/` ni `*- copia.png`  
+
+---
+
+## Próximos pasos sugeridos
+
+1. Save/load de `GameState` a JSON  
+2. Mejorar que el LLM use I/L/F de forma fiable  
+3. Más atmósfera BASIC (ventanas, música corta)  
+4. (Largo) cliente net ASM M4  
 
 ---
 
 ## Archivos clave
 
-| Archivo | Notas |
-|---------|--------|
-| `server/server.py` | HTTP; flags `--mock`, `--model` |
-| `server/ai_adventure.py` | Ollama chat + historial + inferencia `S:` |
-| `server/protocol.py` | `build_packet` / `parse_packet` (CRLF) |
-| `server/cpc_text.py` | `normalize_cpc`, `wrap_lines` |
-| `server/prompts/master.txt` | System prompt Master |
-| `client/aventura.bas` | Cliente; IP PC en string URL |
-| `README.md` | Doc pública del repo |
-| `docs/CARGA.md` | Carga práctica en hardware |
+| Archivo | Rol |
+|---------|-----|
+| `server/server.py` | HTTP CPC + API panel |
+| `server/ai_adventure.py` | LLM Ollama/OpenAI + historial |
+| `server/game_state.py` | Inventario, lugar, flags |
+| `server/protocol.py` | Paquete T/S/E + topes |
+| `server/web/ui.html` | Panel visual CPC |
+| `server/web/hero.png` | Arte panel + README |
+| `client/aventura.bas` | Cliente real |
+| `README.md` | Doc pública con banner |
+| `docs/CARGA.md` | Carga en hardware |
 
 ---
 
-## Notas operativas Windows
+## Notas Windows
 
-- Rutas con `@` y espacios: siempre `-LiteralPath` / comillas
-- Preferir `run_server.bat` desde la raíz del workspace
-- Material hardware (PDFs, zips, fotos, carcasas, RulezCharge) está en `archivo/` intacto
+- Rutas con `@`: `-LiteralPath` / comillas  
+- Arranque: `run_server.bat` desde la raíz  
+- Material hardware en `archivo/` (no Git)  
