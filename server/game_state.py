@@ -38,6 +38,36 @@ class GameState:
             "flags": dict(self.flags),
         }
 
+    @classmethod
+    def from_dict(cls, data: dict | None) -> GameState:
+        g = cls()
+        if not isinstance(data, dict):
+            return g
+        loc = data.get("location")
+        if isinstance(loc, str) and loc.strip():
+            cleaned = re.sub(r"[^a-zA-Z0-9 _\-]", "", loc).strip().lower()
+            cleaned = re.sub(r"\s+", " ", cleaned)[:48]
+            if cleaned:
+                g.location = cleaned
+        inv = data.get("inventory")
+        if isinstance(inv, list):
+            g.inventory = [_norm_item(str(x)) for x in inv if _norm_item(str(x))]
+        flags = data.get("flags")
+        if isinstance(flags, dict):
+            out: dict[str, bool] = {}
+            for k, v in flags.items():
+                key = re.sub(r"[^a-zA-Z0-9_]", "", str(k).lower())[:32]
+                if not key:
+                    continue
+                if isinstance(v, bool):
+                    out[key] = v
+                elif isinstance(v, (int, float)):
+                    out[key] = bool(v)
+                elif isinstance(v, str):
+                    out[key] = v.lower() in ("1", "si", "true", "yes")
+            g.flags = out
+        return g
+
     def apply_meta_lines(self, raw: str) -> str:
         """Aplica I:/L:/F: del LLM y devuelve el texto sin esas lineas."""
         keep: list[str] = []

@@ -126,6 +126,42 @@ class AdventureAI:
         self.last_packet = ""
         self.last_error = ""
 
+    def export_save(self) -> dict[str, Any]:
+        hist = self.history[-(self.max_history * 2) :]
+        clean_hist: list[dict[str, str]] = []
+        for item in hist:
+            if not isinstance(item, dict):
+                continue
+            role = str(item.get("role", ""))
+            content = str(item.get("content", ""))
+            if role in ("user", "assistant") and content:
+                clean_hist.append({"role": role, "content": content[:500]})
+        return {
+            "state": self.state.to_dict(),
+            "history": clean_hist,
+        }
+
+    def import_save(self, data: dict[str, Any]) -> None:
+        self.state = GameState.from_dict(data.get("state") if isinstance(data, dict) else None)
+        self.history = []
+        hist = data.get("history") if isinstance(data, dict) else None
+        if isinstance(hist, list):
+            for item in hist[-(self.max_history * 2) :]:
+                if not isinstance(item, dict):
+                    continue
+                role = str(item.get("role", ""))
+                content = str(item.get("content", ""))
+                if role in ("user", "assistant") and content:
+                    self.history.append({"role": role, "content": content[:500]})
+        self.last_error = ""
+        self.last_user = "(load)"
+        inv = ", ".join(self.state.inventory) if self.state.inventory else "(vacio)"
+        self.last_packet = packet_from_text(
+            f"Partida cargada. Lugar: {self.state.location}. Llevas: {inv}.",
+            sound=0,
+            error=0,
+        )
+
     def config_dict(self) -> dict[str, Any]:
         return {
             "provider": self.provider,

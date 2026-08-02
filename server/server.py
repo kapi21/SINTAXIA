@@ -4,7 +4,8 @@ Servidor SINTAXIA (CPC HTTP + panel web).
 Escucha en 0.0.0.0:8080
   CPC:  GET /ping  /turn?msg=...  /reset
   Web:  GET /ui
-  API:  GET/POST /api/config  GET /api/status  POST /api/reset  GET /api/models
+  API:  GET/POST /api/config  GET /api/status  POST /api/reset
+        GET /api/models  GET /api/saves  POST /api/save  POST /api/load
 
 Uso:
   python server.py
@@ -16,12 +17,14 @@ from __future__ import annotations
 
 import argparse
 import json
+import re
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from urllib.parse import parse_qs, unquote_plus, urlparse
 
 from ai_adventure import DEFAULT_MODEL, AdventureAI, list_ollama_models
-from protocol import packet_from_text, parse_packet
+from protocol import build_packet, packet_from_text, parse_packet
+from save_game import list_slots, load_slot, save_slot, validate_slot
 
 HOST = "0.0.0.0"
 PORT = 8080
@@ -47,9 +50,67 @@ def turn_reply(user_msg: str) -> str:
     low = (user_msg or "").strip().lower()
     if low in ("inventario", "inv", "i", "objetos"):
         return ai.inventory_packet()
+
+    local = handle_save_load_command(ai, low)
+    if local is not None:
+        return local
+
     if _use_mock or _ai is None:
         return mock_reply(user_msg)
     return ai.turn(user_msg)
+
+
+def handle_save_load_command(ai: AdventureAI, low: str) -> str | None:
+    """Comandos locales SAVE/LOAD/SAVES. Devuelve paquete o None."""
+    if low in ("saves", "partidas", "slots"):
+        lines: list[str] = []
+        for info in list_slots():
+            n = info["slot"]
+            if info.get("occupied"):
+                when = str(info.get("saved_at") or "")[:10]
+                name = str(info.get("name") or f"slot{n}")[:10]
+                lines.append(f"Slot {n}: {name} {when}")
+            else:
+                lines.append(f"Slot {n}: (vacio)")
+        packet = build_packet(lines, sound=0, error=0)
+        ai.last_user = "saves"
+        ai.last_packet = packet
+        return packet
+
+    m = re.match(r"^(save|guardar)\s*([123])$", low)
+    if m:
+        slot = int(m.group(2))
+        try:
+            save_slot(ai, slot)
+            packet = packet_from_text(f"Partida guardada en slot {slot}.", sound=5, error=0)
+        except Exception as exc:
+            packet = packet_from_text(f"No se pudo guardar: {exc}", sound=0, error=1)
+        ai.last_user = f"save {slot}"
+        ai.last_packet = packet
+        return packet
+
+    m = re.match(r"^(load|cargar)\s*([123])$", low)
+    if m:
+        slot = int(m.group(2))
+        try:
+            load_slot(ai, slot)
+            inv = ", ".join(ai.state.inventory) if ai.state.inventory else "(vacio)"
+            packet = packet_from_text(
+                f"Cargado slot {slot}. {ai.state.location}. Llevas: {inv}.",
+                sound=0,
+                error=0,
+            )
+            ai.last_packet = packet
+        except FileNotFoundError:
+            packet = packet_from_text(f"Slot {slot} vacio.", sound=0, error=1)
+            ai.last_packet = packet
+        except Exception as exc:
+            packet = packet_from_text(f"Error al cargar: {exc}", sound=0, error=1)
+            ai.last_packet = packet
+        ai.last_user = f"load {slot}"
+        return packet
+
+    return None
 
 
 def mock_reply(user_msg: str) -> str:
@@ -171,6 +232,10 @@ class AdventureHandler(BaseHTTPRequestHandler):
             self._send_json({"models": list_ollama_models()})
             return
 
+        if path == "/api/saves":
+            self._send_json({"slots": list_slots()})
+            return
+
         if path == "/ping":
             mode = "mock" if _use_mock else "ollama"
             if not _use_mock and _ai is not None:
@@ -234,6 +299,39 @@ class AdventureHandler(BaseHTTPRequestHandler):
                 _ai.last_packet = body
                 _ai.last_user = "(reset)"
             self._send_json({"ok": True, "packet": body})
+            return
+
+        if path == "/api/save":
+            data = self._read_json()
+            ai = ensure_ai()
+            try:
+                slot = validate_slot(data.get("slot", 1))
+                name = data.get("name")
+                payload = save_slot(ai, slot, name=str(name) if name else None)
+                self._send_json({"ok": True, "save": payload, "slots": list_slots()})
+            except Exception as exc:
+                self._send_json({"ok": False, "error": str(exc)}, 400)
+            return
+
+        if path == "/api/load":
+            data = self._read_json()
+            ai = ensure_ai()
+            try:
+                slot = validate_slot(data.get("slot", 1))
+                payload = load_slot(ai, slot)
+                self._send_json(
+                    {
+                        "ok": True,
+                        "save": payload,
+                        "state": ai.state.to_dict(),
+                        "packet": ai.last_packet,
+                        "slots": list_slots(),
+                    }
+                )
+            except FileNotFoundError as exc:
+                self._send_json({"ok": False, "error": str(exc)}, 404)
+            except Exception as exc:
+                self._send_json({"ok": False, "error": str(exc)}, 400)
             return
 
         self._send_json({"ok": False, "error": "not found"}, 404)

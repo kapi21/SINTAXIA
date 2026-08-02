@@ -25,3 +25,6 @@ Thumbs.db
 *- copia.png
 * - copia.*
 
+# Partidas guardadas (slots locales)
+server/saves/*.json
+

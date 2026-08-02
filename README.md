@@ -104,13 +104,15 @@ python server.py --mock
 ```
 
 **Panel web:** [http://127.0.0.1:8080/ui](http://127.0.0.1:8080/ui)  
-Ahí puedes elegir mock / Ollama / API OpenAI-compatible, modelo, temperatura, system prompt, ver el último paquete `T:/S:/E:` y reiniciar partida.
+Ahí puedes elegir mock / Ollama / API OpenAI-compatible, modelo, temperatura, system prompt, ver el último paquete `T:/S:/E:`, inventario/estado, **guardar/cargar slots 1–3** y reiniciar partida.
 
 Prueba rápida:
 
 ```bash
 curl http://127.0.0.1:8080/ping
 curl "http://127.0.0.1:8080/turn?msg=miro+alrededor"
+curl "http://127.0.0.1:8080/turn?msg=SAVE+1"
+curl "http://127.0.0.1:8080/turn?msg=LOAD+1"
 curl http://127.0.0.1:8080/reset
 ```
 
@@ -124,7 +126,8 @@ Más detalle de carga en el CPC: `docs/CARGA.md`.
    (si no carga como ASCII, `SAVE"aventura` desde un emulador y copia el `.bas` tokenizado)
 2. En el CPC: `|NETSTAT` y comprueba IP
 3. `RUN"aventura`
-4. Escribe acciones en español natural (`miro alrededor`, `voy al norte`, …). `QUIT` para salir.
+4. Escribe acciones en español natural (`miro alrededor`, `voy al norte`, …).  
+   Comandos: `INV`, `SAVE 1`–`3`, `LOAD 1`–`3`, `SAVES`, `NUEVA`, `AYUDA`, `QUIT`.
 
 Prueba manual de red desde BASIC:
 
@@ -161,10 +164,9 @@ python -c "from protocol import build_packet, parse_packet; print(parse_packet(b
 
 ## Roadmap breve
 
-- Ambiente visual CPC (tintas, borde según `S:`)
-- Sonidos AY con envolventes
-- Panel web en el PC (Ollama vs API externa)
-- Inventario / estado de partida más rico
+- Pulir coherencia LLM con I/L/F
+- Más atmósfera en BASIC
+- (Largo) cliente TCP Z80 / `C_NET*`
 
 ---
 

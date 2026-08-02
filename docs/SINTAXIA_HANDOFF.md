@@ -10,10 +10,9 @@
 ## Estado
 
 - **Proyecto:** SINTAXIA — motor de aventura conversacional con IA para Amstrad CPC + M4 Board
-- **Hecho:** PoC completo y publicado: cliente BASIC, servidor HTTP, Ollama/API, panel web estilo CPC, inventario/estado, README con arte hero
+- **Hecho:** PoC completo y publicado: cliente BASIC, servidor HTTP, Ollama/API, panel web estilo CPC, inventario/estado, save/load slots 1-3, README con arte hero
 - **Pendiente:**
   - Pulir coherencia LLM con flags/lugares
-  - Guardar/cargar partida (opcional)
   - Cliente TCP Z80 (largo plazo)
 - **Cómo verificar:** `run_server.bat` → http://127.0.0.1:8080/ui → CPC `RUN"aventura`
 - **Riesgos:** IP PC hardcodeada en BASIC (`P$`); Ollama en `:11434`; firewall 8080; `.bas` ASCII puede necesitar tokenizar; tope texto CPC ~6×40 / 255 chars
@@ -57,7 +56,7 @@ client/aventura.bas              server/server.py :8080
   |HTTPGET → RESP.TXT            game_state.py (I/L/F)
   parse T:/S:/E:                 protocol.py + cpc_text.py
   BORDER + SOUND AY
-  INV / NUEVA / AYUDA / QUIT
+  INV / NUEVA / SAVE n / LOAD n / SAVES / AYUDA / QUIT
 ```
 
 **Transporte:** HTTP (`|HTTPGET`). TCP/ASM = futuro.
@@ -68,6 +67,9 @@ client/aventura.bas              server/server.py :8080
 |------|-----|
 | `GET /ui` | Panel web (estilo CPC + hero.png) |
 | `GET /assets/hero.png` | Arte del panel / README |
+| `GET /api/saves` | Lista slots 1-3 |
+| `POST /api/save` | Guarda slot `{slot, name?}` |
+| `POST /api/load` | Carga slot `{slot}` |
 | `GET /ping` | Salud (CPC intro) |
 | `GET /turn?msg=` | Turno / `inventario` |
 | `GET /reset` | Nueva partida |
@@ -109,11 +111,13 @@ M4/
     server.py
     ai_adventure.py
     game_state.py
+    save_game.py            # slots JSON en server/saves/
     protocol.py
     cpc_text.py
     prompts/master.txt
     web/ui.html
-    web/hero.png            # arte pixel CPC (también en README)
+    web/hero.png
+    saves/.gitkeep          # *.json gitignored
   tests/
   docs/
     CARGA.md
@@ -154,7 +158,7 @@ cd "C:\@MIS PROYECTOS\M4"
 ### CPC
 1. Copiar `client/aventura.bas` a la SD (tokenizar si hace falta)  
 2. `|NETSTAT` → `RUN"aventura`  
-3. Comandos: `AYUDA`, `NUEVA`, `INV`, `QUIT`  
+3. Comandos: `AYUDA`, `NUEVA`, `INV`, `SAVE 1`, `LOAD 1`, `SAVES`, `QUIT`  
 
 Ver también `docs/CARGA.md`.
 
@@ -174,10 +178,9 @@ Ver también `docs/CARGA.md`.
 
 ## Próximos pasos sugeridos
 
-1. Save/load de `GameState` a JSON  
-2. Mejorar que el LLM use I/L/F de forma fiable  
-3. Más atmósfera BASIC (ventanas, música corta)  
-4. (Largo) cliente net ASM M4  
+1. Mejorar que el LLM use I/L/F de forma fiable  
+2. Más atmósfera BASIC (ventanas, música corta)  
+3. (Largo) cliente net ASM M4  
 
 ---
 
@@ -188,6 +191,7 @@ Ver también `docs/CARGA.md`.
 | `server/server.py` | HTTP CPC + API panel |
 | `server/ai_adventure.py` | LLM Ollama/OpenAI + historial |
 | `server/game_state.py` | Inventario, lugar, flags |
+| `server/save_game.py` | Persistencia slots 1-3 |
 | `server/protocol.py` | Paquete T/S/E + topes |
 | `server/web/ui.html` | Panel visual CPC |
 | `server/web/hero.png` | Arte panel + README |

@@ -365,10 +365,25 @@
 
           <section class="panel">
             <h2>Paquete al CPC</h2>
-      <label>Estado partida</label>
-      <pre id="gameState">(vacio)</pre>
-      <label>Jugador</label>
-      <pre id="lastUser">(nada aun)</pre>
+            <label>Estado partida</label>
+            <pre id="gameState">(vacio)</pre>
+            <label>Partidas (slots 1-3)</label>
+            <pre id="savesBox">(cargando)</pre>
+            <div class="row">
+              <input id="saveName" placeholder="nombre opcional" />
+              <select id="saveSlot">
+                <option value="1">Slot 1</option>
+                <option value="2">Slot 2</option>
+                <option value="3">Slot 3</option>
+              </select>
+            </div>
+            <div class="actions">
+              <button id="btnSaveSlot">Guardar</button>
+              <button id="btnLoadSlot">Cargar</button>
+              <button id="btnListSaves">Listar</button>
+            </div>
+            <label>Jugador</label>
+            <pre id="lastUser">(nada aun)</pre>
             <label>Respuesta T:/S:/E:</label>
             <pre id="lastPacket">(nada aun)</pre>
             <label>Error LLM</label>
@@ -423,10 +438,19 @@
       box.innerHTML = '<span class="led"></span>READY · ' + mode + ' · ' + (cfg.model || '-') + ' · H' + (cfg.history_len || 0);
       box.className = "status ok";
     }
+    async function refreshSaves() {
+      const data = await api("/api/saves");
+      const lines = (data.slots || []).map(s => {
+        if (!s.occupied) return "Slot " + s.slot + ": (vacio)";
+        return "Slot " + s.slot + ": " + (s.name || "") + " | " + (s.summary || "") + " | " + (s.saved_at || "");
+      });
+      $("savesBox").textContent = lines.join("\n") || "(sin datos)";
+    }
     async function refresh() {
       const status = await api("/api/status");
       const cfg = await api("/api/config");
       fill(cfg, status);
+      await refreshSaves();
     }
     $("btnRefresh").onclick = () => refresh().catch(e => toast(String(e)));
     $("btnSave").onclick = async () => {
@@ -452,6 +476,29 @@
     $("btnReset").onclick = async () => {
       await api("/api/reset", { method: "POST" });
       toast("NUEVA PARTIDA");
+      await refresh();
+    };
+    $("btnListSaves").onclick = () => refreshSaves().then(() => toast("SLOTS")).catch(e => toast(String(e)));
+    $("btnSaveSlot").onclick = async () => {
+      const slot = Number($("saveSlot").value);
+      const name = $("saveName").value;
+      await api("/api/save", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ slot, name }),
+      });
+      toast("SAVE " + slot);
+      await refresh();
+    };
+    $("btnLoadSlot").onclick = async () => {
+      const slot = Number($("saveSlot").value);
+      const res = await api("/api/load", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ slot }),
+      });
+      if (res.packet) $("lastPacket").textContent = res.packet;
+      toast("LOAD " + slot);
       await refresh();
     };
     $("btnModels").onclick = async () => {
