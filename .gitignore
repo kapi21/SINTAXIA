@@ -1,0 +1,35 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.venv/
+venv/
+
+# CPC runtime leftovers
+RESP.TXT
+PING.TXT
+*.BAK
+
+# Local hardware dumps / media (not part of the engine)
+*.pdf
+*.zip
+*.JPG
+*.jpg
+*.png
+*.jpeg
+m4info.txt
+M4.txt
+DSC*
+IMG_*
+grabacion*
+Carcasa*/
+m4_wifi*/
+RulezCharge*/
+docs/superpowers/
+
+# OS / editor
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
+*.swp
