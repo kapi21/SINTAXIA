@@ -367,7 +367,7 @@ class AdventureAI:
             "stream": False,
             "options": {
                 "temperature": self.temperature,
-                "num_predict": 350,
+                "num_predict": 500,
             },
         }
         data = self._post_json(
@@ -383,7 +383,7 @@ class AdventureAI:
             "model": self.model,
             "messages": self._messages(user_msg),
             "temperature": self.temperature,
-            "max_tokens": 350,
+            "max_tokens": 500,
         }
         headers = {"Content-Type": "application/json"}
         if self.api_key:
@@ -397,7 +397,7 @@ class AdventureAI:
         messages = self._messages(user_msg)
         system = messages[0]["content"] if messages and messages[0]["role"] == "system" else self.system
         payload = build_claude_payload(
-            self.model, system, messages, self.temperature, 350
+            self.model, system, messages, self.temperature, 500
         )
         headers = {
             "Content-Type": "application/json",
@@ -412,7 +412,7 @@ class AdventureAI:
             raise RuntimeError("Falta API key de Gemini. Pegala en el panel y pulsa Guardar.")
         messages = self._messages(user_msg)
         system = messages[0]["content"] if messages and messages[0]["role"] == "system" else self.system
-        payload = build_gemini_payload(system, messages, self.temperature, 350)
+        payload = build_gemini_payload(system, messages, self.temperature, 500)
         url = gemini_url(self.api_base, self.model)
         # Google acepta ?key= (mas compatible) y header x-goog-api-key
         url = f"{url}?key={urllib.parse.quote(self.api_key, safe='')}"

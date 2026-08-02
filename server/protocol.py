@@ -6,10 +6,10 @@ from typing import TypedDict
 
 from cpc_text import normalize_cpc, wrap_lines
 
-# MODE 1 = 40 cols. CPC string/LINE INPUT max ~255.
-# "T:" + cuerpo debe quedar < 255 para no cortar en el Amstrad.
+# MODE 1 = 40 cols. CPC LINE INPUT max ~255 por fila.
+# Varias filas T: permiten hasta CPC_MAX_LINES sin un solo T$ gigante.
 CPC_WIDTH = 40
-CPC_MAX_LINES = 6
+CPC_MAX_LINES = 12
 CPC_T_BODY_MAX = 250
 
 
@@ -19,8 +19,24 @@ class Packet(TypedDict):
     error: int
 
 
+def _chunk_t_bodies(safe_lines: list[str]) -> list[str]:
+    """Parte lineas en cuerpos T: que no superen CPC_T_BODY_MAX."""
+    chunks: list[str] = []
+    current: list[str] = []
+    for line in safe_lines:
+        trial = "|".join(current + [line]) if current else line
+        if current and len(trial) > CPC_T_BODY_MAX:
+            chunks.append("|".join(current))
+            current = [line]
+        else:
+            current.append(line)
+    if current:
+        chunks.append("|".join(current))
+    return chunks or ["..."]
+
+
 def build_packet(lines: list[str], sound: int, error: int = 0) -> str:
-    """Construye el cuerpo text/plain para el Amstrad."""
+    """Construye el cuerpo text/plain para el Amstrad (una o varias filas T:)."""
     sound = max(0, min(5, int(sound)))
     error = 1 if int(error) else 0
     safe_lines: list[str] = []
@@ -43,7 +59,6 @@ def build_packet(lines: list[str], sound: int, error: int = 0) -> str:
         else:
             safe_lines.append(line[:CPC_WIDTH])
         if len(safe_lines) >= CPC_MAX_LINES:
-            # Truncado solo si quedaba mas texto de entrada
             rest = [normalize_cpc(str(x)) for x in lines[idx + 1 :] if normalize_cpc(str(x))]
             if rest:
                 truncated = True
@@ -52,18 +67,6 @@ def build_packet(lines: list[str], sound: int, error: int = 0) -> str:
     if not safe_lines:
         safe_lines = ["..."]
 
-    while True:
-        t_body = "|".join(safe_lines)
-        if len(t_body) <= CPC_T_BODY_MAX:
-            break
-        truncated = True
-        if len(safe_lines) <= 1:
-            t_body = safe_lines[0][: CPC_T_BODY_MAX - 3] + "..."
-            safe_lines = [t_body]
-            break
-        safe_lines.pop()
-
-    t_body = "|".join(safe_lines)
     if truncated and safe_lines:
         last = safe_lines[-1]
         if not last.endswith("..."):
@@ -71,15 +74,21 @@ def build_packet(lines: list[str], sound: int, error: int = 0) -> str:
                 safe_lines[-1] = last[:37] + "..."
             else:
                 safe_lines[-1] = last + "..."
-            t_body = "|".join(safe_lines)
-            if len(t_body) > CPC_T_BODY_MAX:
-                t_body = t_body[: CPC_T_BODY_MAX - 3] + "..."
 
-    return f"T:{t_body}\r\nS:{sound}\r\nE:{error}\r\n"
+    bodies = _chunk_t_bodies(safe_lines)
+    # Seguridad: una linea suelta no debe romper LINE INPUT
+    fixed: list[str] = []
+    for body in bodies:
+        if len(body) <= CPC_T_BODY_MAX:
+            fixed.append(body)
+        else:
+            fixed.append(body[: CPC_T_BODY_MAX - 3] + "...")
+    out = "".join(f"T:{body}\r\n" for body in fixed)
+    return f"{out}S:{sound}\r\nE:{error}\r\n"
 
 
 def parse_packet(raw: str) -> Packet:
-    """Parsea un paquete; tolera CRLF y lineas extra."""
+    """Parsea un paquete; tolera CRLF, varias filas T: y lineas extra."""
     lines: list[str] = []
     sound = 0
     error = 0
@@ -89,7 +98,7 @@ def parse_packet(raw: str) -> Packet:
             continue
         if part.startswith("T:") or part.startswith("t:"):
             body = part[2:]
-            lines = [normalize_cpc(x) for x in body.split("|") if normalize_cpc(x)]
+            lines.extend(normalize_cpc(x) for x in body.split("|") if normalize_cpc(x))
         elif part.startswith("S:") or part.startswith("s:"):
             try:
                 sound = max(0, min(5, int(part[2:].strip())))
@@ -103,7 +112,7 @@ def parse_packet(raw: str) -> Packet:
     if not lines:
         lines = ["Sin texto"]
         error = 1
-    return {"lines": lines, "sound": sound, "error": error}
+    return {"lines": lines[:CPC_MAX_LINES], "sound": sound, "error": error}
 
 
 def packet_from_text(text: str, sound: int = 0, error: int = 0) -> str:

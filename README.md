@@ -71,7 +71,7 @@ S:2
 E:0
 ```
 
-- `T:` descripción; líneas ≤40 chars, separadas por `|` (máx. ~4)
+- `T:` descripción; líneas ≤40 chars, separadas por `|` (máx. 12; puede ir en varias filas `T:`)
 - `S:` sonido `0`–`5` (neutro, peligro, ambiente, objeto, combate, victoria)
 - `E:` `0` ok / `1` error  
 - Fin de línea: **CRLF** (requerido por `LINE INPUT` del CPC)

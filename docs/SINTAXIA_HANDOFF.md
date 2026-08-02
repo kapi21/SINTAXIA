@@ -126,7 +126,7 @@ E:0
 ```
 
 - Al CPC solo importan **T/S/E** (CRLF). I/L/F solo en PC.  
-- Topes: **40** cols, **máx. 6** líneas, cuerpo `T:` ≤ **250**.  
+- Topes: **40** cols, **máx. 12** líneas (varias filas `T:` si hace falta), cada cuerpo `T:` ≤ **250**.  
 - **S:** 0 neutro · 1 peligro · 2 ambiente · 3 objeto · 4 combate · 5 victoria  
 
 ---

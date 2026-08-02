@@ -40,3 +40,24 @@ def test_parse_tolerates_crlf():
     pkt = parse_packet(raw)
     assert pkt["lines"] == ["Hola", "Mundo"]
     assert pkt["sound"] == 1
+
+
+def test_twelve_lines_and_multi_t_rows():
+    lines = [f"Linea numero {i} de texto." for i in range(1, 13)]
+    raw = build_packet(lines, sound=2, error=0)
+    assert raw.count("T:") >= 2
+    for part in raw.split("\r\n"):
+        if part.startswith("T:"):
+            assert len(part) <= 252  # "T:" + <=250
+    pkt = parse_packet(raw)
+    assert len(pkt["lines"]) == 12
+    assert pkt["lines"][0].startswith("Linea numero 1")
+    assert pkt["lines"][-1].startswith("Linea numero 12")
+
+
+def test_thirteenth_line_truncated():
+    lines = [f"L{i} xxxxxxxxxx" for i in range(1, 15)]
+    raw = build_packet(lines, sound=0, error=0)
+    pkt = parse_packet(raw)
+    assert len(pkt["lines"]) == 12
+    assert pkt["lines"][-1].endswith("...")

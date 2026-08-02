@@ -333,7 +333,7 @@ Escribes lo que haces **en espanol natural**. No hace falta sintaxis de parser c
 Limites practicos:
 
 - Mensaje de jugador ~80 caracteres (URL BASIC).
-- Respuesta: hasta **6 lineas** de **40** caracteres (si hay mas, el PC corta y puede anadir `...`).
+- Respuesta: hasta **12 lineas** de **40** caracteres (varias filas `T:` si hace falta; solo si hay mas de 12 el PC corta con `...`).
 
 ### 8.3 Atmosfera y presentacion visual (Edicion Comercial AAA)
 

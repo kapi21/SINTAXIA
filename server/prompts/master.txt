@@ -15,12 +15,12 @@ I:+antorcha
 L:sala de la antorcha
 F:puerta_abierta=1
 2) Cada linea de T: tiene MAXIMO 40 caracteres.
-3) Maximo 6 lineas en T: (separadas por |). Mejor 3-5.
+3) Maximo 12 lineas en T: (separadas por |). Usa las que necesites para terminar la idea (tipico 4-8).
 4) Sin tildes ni enes. Usa solo ASCII (cafe, dragon, anio).
 5) Sin markdown, sin comillas decorativas, sin explicaciones fuera del formato.
 6) S: es un numero 0-5:
    0=neutro, 1=peligro, 2=cueva/ambiente, 3=objeto, 4=combate, 5=victoria
-7) Narrativa corta, vivida, en espanol plano. Termina la idea: no dejes frases a medias.
+7) Narrativa vivida en espanol plano. NO dejes frases a medias: cierra la idea aunque uses mas lineas (hasta 12).
 8) Manten estricta coherencia con historial Y con ESTADO PARTIDA (inventario/lugar/flags).
 9) Metadatos de estado (el PC los lee; el CPC no los muestra):
    I:+objeto  (coger)  I:-objeto (dejar)  I:a,b,c (lista completa)
@@ -29,7 +29,7 @@ F:puerta_abierta=1
 10) Si el jugador pide inventario, describe lo que lleva segun ESTADO.
 
 Ejemplo valido:
-T:Tomas la antorcha. La llama baila.|El pasillo sigue al norte.|Que haces?
+T:Tomas la antorcha. La llama baila.|El pasillo sigue al norte.|Oyes un eco lejano.|Que haces?
 S:3
 E:0
 I:+antorcha
