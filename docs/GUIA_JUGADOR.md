@@ -14,52 +14,51 @@ Escribes lo que quieres hacer, como si hablaras con alguien:
 > abro la puerta  
 > cojo la antorcha  
 
-El maestro te responde con la narracion de forma **animada letra a letra** (efecto maquina de escribir) acompanado de sonido sinteticos en el chip del Amstrad. 
+El maestro te responde con narracion **letra a letra** (maquina de escribir) y sonidos del chip del Amstrad.
 
 Ademas:
-- **Colores dinamicos**: El texto cambia de color segun el momento (ambar para historia, rojo para peligro/combate, verde para tesoros y logros).
-- **El borde cambia de color** segun la situacion.
-- **Paginacion**: Si la historia es larga, el juego se pausa con `[ESPACIO para continuar]` para que no te pierdas nada.
 
-Tambien puedes guardar la partida y retomarla otro dia.
+- **Colores dinamicos** segun el momento (historia, peligro, tesoro…).
+- **El borde cambia** segun la situacion.
+- Al empezar (y con `NUEVA`) lees un **resumen de situacion**: donde estas y que ocurre, sin tecnicismos.
+- Puedes **guardar** la partida y retomarla otro dia.
 
 ---
 
 ## Lo que necesitas
 
-1. **Amstrad CPC** con **M4 Board** ya conectada a tu Wi‑Fi.  
-2. **PC** (Windows) en la **misma Wi‑Fi**, con el programa SINTAXIA y, si puedes, Ollama instalado (para la IA).  
-3. El fichero del juego en la tarjeta de la M4: `aventura.bas`.
+1. **Amstrad CPC** con **M4 Board** en tu Wi‑Fi.  
+2. **PC** (Windows) en la **misma Wi‑Fi**, con SINTAXIA y (recomendado) Ollama u otra IA.  
+3. En la microSD: `aventura.bas` y, si puedes, `TITLE.SCR` (pantalla de titulo).
 
-Si alguien te ha dejado el sistema preparado, salta a [Empezar a jugar](#empezar-a-jugar).
+Si alguien te lo dejo preparado, salta a [Empezar a jugar](#empezar-a-jugar).
 
 ---
 
 ## Preparar el PC (una vez)
 
-1. Enciende el PC y conectalo a la Wi‑Fi de casa.  
+1. Enciende el PC y conectalo a la Wi‑Fi.  
 2. Abre la carpeta de SINTAXIA.  
-3. Haz doble clic en **`run_server.bat`**.  
-   - Deja esa ventana abierta mientras juegas.  
-4. (Opcional) Abre el navegador en:  
-   **http://127.0.0.1:8080/ui**  
-   Ahi veras un panel con pinta de Amstrad. Deja **Modo = IA** si quieres la aventura con inteligencia artificial.  
-   Si pasas el raton por el **?** junto a cada opcion, aparece una ventanita explicando que hace.  
-   Puedes elegir **Ollama** (local) o APIs de **OpenAI**, **Claude** o **Gemini** (necesitas su clave).
+3. Doble clic en **`run_server.bat`**.  
+   - Deja esa ventana abierta.  
+   - Suele abrirse solo el panel en el navegador.  
+4. Panel: **http://127.0.0.1:8080/ui**  
+   - **Modo = IA** para jugar con inteligencia artificial.  
+   - Puedes elegir Ollama, OpenAI, Claude o Gemini (con su clave).  
+   - Pasa el raton por el **?** de cada opcion para ver ayuda.  
+   - Quien administra el sistema puede pulsar **Generar prompt** para inventar un mundo nuevo y luego **Guardar**.
 
-Si no tienes IA instalada, en el panel puedes poner **Modo = Mock**: el juego responde de forma sencilla para probar que todo conecta.
+Sin IA: **Modo = Mock** para probar que la red funciona.
 
 ---
 
 ## Preparar el Amstrad (una vez)
 
 1. Enciende el CPC con la M4 y la microSD.  
-2. Escribe: `|NETSTAT`  
-   Debe mostrar que hay red e IP.  
-3. Si te han dicho que cambies la IP del PC en el juego, pide ayuda a quien te lo instalo (esta al principio del programa `aventura.bas`).  
-4. Arranca el juego:  
-   `RUN"aventura`  
-   (Copia tambien `TITLE.SCR` a la microSD si quieres la pantalla grafica de titulo.)
+2. `|NETSTAT` — debe haber red e IP.  
+3. Si hay que cambiar la IP del PC, esta al inicio de `aventura.bas` (`P$`).  
+4. `RUN"aventura`  
+   (Con `TITLE.SCR` en la misma carpeta veras el titulo grafico.)
 
 ---
 
@@ -67,42 +66,36 @@ Si no tienes IA instalada, en el panel puedes poner **Modo = Mock**: el juego re
 
 1. PC: `run_server.bat` en marcha.  
 2. CPC: `RUN"aventura`  
-3. Si aparece el titulo (castillo/puerta), pulsa **ESPACIO**.  
-4. En la pantalla de inicio deberia salir algo como **SERVIDOR ACTIVO**.  
-5. Escribe, por ejemplo:  
-   `miro alrededor`  
-6. Espera un momento (“Esperando al maestro…”) y lee la respuesta.
+3. Si hay titulo grafico, pulsa **ESPACIO**.  
+4. Debe salir **SERVIDOR ACTIVO** y luego un bloque **Situacion** (resumen de la aventura).  
+5. Escribe, por ejemplo: `miro alrededor`  
+6. Espera (“Pensando…”) y lee la respuesta.
 
-Si sale **SERVIDOR NO ACTIVO**:
-
-- Mira que el PC tenga el programa abierto.  
-- Pulsa **R** en el CPC para reintentar.  
-- Comprueba que ambos estan en la misma Wi‑Fi.
+Si sale **SERVIDOR NO ACTIVO**: PC con el programa abierto, misma Wi‑Fi, tecla **R** para reintentar.
 
 ---
 
 ## Como se juega
 
-- Escribe **acciones en español normal**. No hace falta memorizar verbos raros.  
-- Cuanto mas claro digas lo que haces, mejor te entiende el maestro.  
-- Puedes explorar, coger objetos, hablar, pelear, resolver situaciones… segun lo que narre la historia.  
-- El juego lleva un **inventario** (lo que llevas encima).
+- Acciones en **espanol normal**.  
+- Frases claras ayudan al maestro.  
+- Hay **inventario** (lo que llevas).
 
 ### Comandos utiles
 
 | Escribes | Que pasa |
 |----------|----------|
-| `AYUDA` | Te recuerda los comandos. |
-| `INV` | Mira lo que llevas encima. |
-| `!` | Repite el ultimo comando que escribiste. |
-| `D` | Pantalla de diagnostico (revisa tu conexion y estado del juego). |
-| `NUEVA` | Empieza una aventura desde cero. |
-| `SAVE 1` | Guarda la partida en la ranura 1 (tambien 2 o 3). |
-| `LOAD 1` | Carga la partida de esa ranura. |
-| `SAVES` | Te dice que ranuras tienes ocupadas. |
-| `QUIT` | Sales del juego. |
+| `AYUDA` | Recuerda comandos. |
+| `INV` | Mira lo que llevas. |
+| `!` | Repite el ultimo comando. |
+| `D` | Diagnostico (conexion / estado). |
+| `NUEVA` o `REINICIO` | Empieza de cero con el mundo que hay ahora en el PC (y vuelve a contar la situacion). |
+| `SAVE 1` | Guarda en ranura 1 (tambien 2 o 3). |
+| `LOAD 1` | Carga esa ranura. |
+| `SAVES` | Lista ranuras. |
+| `QUIT` | Guarda en slot 1 y reinicia el CPC. |
 
-Ejemplos de acciones (no son comandos fijos; inventa las tuyas):
+Ejemplos de acciones:
 
 ```text
 miro alrededor
@@ -116,26 +109,30 @@ uso la llave
 
 ## Guardar y seguir otro dia
 
-1. Cuando quieras parar: `SAVE 1` (o 2, o 3).  
-2. Apaga con `QUIT` si quieres.  
-3. Otro dia: enciende PC (`run_server.bat`), CPC (`RUN"aventura`) y escribe `LOAD 1`.
+1. `SAVE 1` (o 2 / 3).  
+2. `QUIT` si quieres apagar.  
+3. Otro dia: PC (`run_server.bat`) + CPC (`RUN"aventura`) + `LOAD 1`.
 
-Tambien puedes guardar y cargar desde el panel del PC (pantalla bonita del navegador), eligiendo la ranura 1, 2 o 3.
+Tambien desde el panel del PC (Guardar / Cargar slots).
 
 ---
 
-## Panel del PC (opcional, facil)
+## Panel del PC (opcional)
 
-Direccion: **http://127.0.0.1:8080/ui**
+**http://127.0.0.1:8080/ui**
 
-Para un jugador normal basta con:
+Para jugar basta con:
 
-- Ver que pone **READY** / servidor activo.  
-- Dejar **Modo = IA** (o Mock para pruebas).  
-- Usar **Nueva** si quieres reiniciar la historia.  
-- Usar **Guardar / Cargar** de partidas si te resulta mas comodo que en el CPC.
+- Ver **READY**.  
+- **Modo = IA** (o Mock).  
+- **Nueva** en el panel si quieres reiniciar en el PC.  
+- Guardar / Cargar slots.
 
-El resto de opciones (modelo, temperatura, etc.) son para quien administra el sistema; no hace falta tocarlas para disfrutar.
+Opciones avanzadas (quien monta el sistema):
+
+- **Generar prompt**: inventa un mundo nuevo (luego **Guardar**).  
+- **Prompt por defecto**: vuelve al castillo clasico (luego **Guardar**).  
+- Modelo, temperatura, API key…
 
 ---
 
@@ -143,19 +140,20 @@ El resto de opciones (modelo, temperatura, etc.) son para quien administra el si
 
 | Que ves | Que probar |
 |---------|------------|
-| No encuentra el servidor | PC con `run_server.bat` abierto; misma Wi‑Fi; tecla **R** en la intro. |
-| Se queda mucho en “Esperando…” | La IA tarda un poco la primera vez; espera. Si no responde, revisa el panel del PC. |
-| El texto se corta con `...` | Es normal: el Amstrad muestra textos cortos. |
-| No carga `RUN"aventura` | Pide a quien te ayudo que deje el fichero bien guardado en la tarjeta. |
+| No encuentra el servidor | `run_server.bat` abierto; misma Wi‑Fi; **R** en la intro. |
+| Tarda en “Pensando…” / situacion | La IA puede tardar; espera. Revisa el panel. |
+| El texto acaba en `...` | Solo si la IA se pasa de 12 lineas; suele bastar. |
+| No carga `RUN"aventura"` | Fichero bien en la SD (a veces hace falta tokenizar el `.bas`). |
+| Sin titulo grafico | Falta `TITLE.SCR` o fallo de carga; el juego sigue igual. |
 
 ---
 
 ## Resumen en 30 segundos
 
-1. PC: doble clic en `run_server.bat`.  
-2. CPC: `RUN"aventura`.  
-3. Escribe lo que haces.  
-4. `SAVE 1` para guardar.  
+1. PC: `run_server.bat`.  
+2. CPC: `RUN"aventura` → ESPACIO si hay titulo.  
+3. Lee la **Situacion** y escribe lo que haces.  
+4. `SAVE 1` para guardar; `NUEVA` para empezar de cero.  
 5. `QUIT` para salir.
 
-**Disfruta la aventura.** Que la antorcha no se apague.
+**Disfruta la aventura.**

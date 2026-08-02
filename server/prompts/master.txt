@@ -27,6 +27,8 @@ F:puerta_abierta=1
    L:nombre del lugar actual
    F:clave=1 o F:clave=0
 10) Si el jugador pide inventario, describe lo que lleva segun ESTADO.
+11) NUNCA unas campos con barras. Prohibido: T:texto/S:2/E:0/I:... 
+    Cada etiqueta T: S: E: I: L: F: va en linea nueva.
 
 Ejemplo valido:
 T:Tomas la antorcha. La llama baila.|El pasillo sigue al norte.|Oyes un eco lejano.|Que haces?

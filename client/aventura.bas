@@ -23,6 +23,7 @@
 136 IF M$="DEBUG" OR M$="debug" THEN GOSUB 7900:GOTO 100
 140 IF M$="AYUDA" OR M$="ayuda" OR M$="Ayuda" THEN GOSUB 7700:GOTO 100
 150 IF M$="NUEVA" OR M$="nueva" OR M$="Nueva" THEN GOSUB 7800:GOTO 100
+152 IF M$="REINICIO" OR M$="reinicio" OR M$="Reinicio" THEN GOSUB 7800:GOTO 100
 160 GOSUB 1000:REM encode -> U$
 170 A$="http://"+P$+"/turn?msg="+U$+">RESP.TXT"
 180 IF LEN(A$)>240 THEN PEN 3:PRINT "Msg muy largo":PEN 1:GOTO 100
@@ -182,7 +183,7 @@
 7190 PRINT
 7200 PEN 2:PRINT "Comandos:":PEN 1
 7210 PRINT " AYUDA  - esta ayuda"
-7220 PRINT " NUEVA  - reinicia partida"
+7220 PRINT " NUEVA / REINICIO - empezar de 0"
 7225 PRINT " INV    - ver inventario"
 7226 PRINT " SAVE n / LOAD n / SAVES"
 7227 PRINT " !      - repetir ultimo comando"
@@ -205,13 +206,17 @@
 7380 PEN 3:PRINT "Sigues SIN servidor.":PEN 1
 7390 GOTO 7450
 7400 PEN 2:PRINT "*** SERVIDOR ACTIVO ***":PEN 1
-7410 PRINT "Todo listo."
-7420 PRINT
-7430 PRINT "Ejemplo: miro alrededor"
-7440 PRINT "Luego escribe tu accion."
+7410 PRINT
+7412 PEN 2:PRINT "Preparando tu historia...":PEN 1
+7415 PEN 2:PRINT "-- Situacion --":PEN 1
+7420 GOSUB 7650:REM contexto narrativo /intro
+7425 GOSUB 9100
+7430 GOSUB 3000
+7435 GOSUB 9000
 7450 PRINT
 7460 PEN 2:PRINT "-- La aventura comienza --":PEN 1
-7470 PRINT
+7470 PRINT "Escribe tu accion (ej. miro alrededor)"
+7475 PRINT
 7480 RETURN
 7500 REM --- ping HTTP /ping ---
 7510 OK=0:E=1:T$=""
@@ -231,6 +236,13 @@
 7610 CLOSEIN
 7620 IF OK=1 THEN E=0
 7630 RETURN
+7650 REM --- contexto narrativo GET /intro ---
+7655 A$="http://"+P$+"/intro>RESP.TXT"
+7660 |HTTPGET,@A$
+7665 FOR D=1 TO 100:NEXT D
+7670 GOSUB 2500
+7675 GOSUB 2000
+7680 RETURN
 7700 REM --- ayuda in-game ---
 7710 PRINT
 7720 PEN 2:PRINT "SINTAXIA - ayuda":PEN 1
@@ -239,21 +251,32 @@
 7745 PRINT " INV / inventario - objetos"
 7746 PRINT " SAVE 1..3  LOAD 1..3  SAVES"
 7747 PRINT " ! (repetir)  D (debug)"
-7750 PRINT " AYUDA / NUEVA / QUIT"
+7750 PRINT " AYUDA / NUEVA / REINICIO / QUIT"
 7760 PRINT "Servidor PC: ";P$
 7770 IF OK=1 THEN PRINT "Estado: activo" ELSE PRINT "Estado: dudoso"
 7780 PRINT
 7790 RETURN
-7800 REM --- nueva partida /reset ---
-7810 PEN 2:PRINT "Nueva partida...":PEN 1
+7800 REM --- nueva partida /reset + intro del mundo actual ---
+7810 PEN 2:PRINT "Reiniciando aventura...":PEN 1
 7820 A$="http://"+P$+"/reset>RESP.TXT"
 7830 |HTTPGET,@A$
-7835 GOSUB 2500:REM borra "downloaded in Xs" de la M4
-7840 GOSUB 2000
-7850 S=0:GOSUB 9100
-7860 GOSUB 3000
-7870 GOSUB 9000
-7880 RETURN
+7835 FOR D=1 TO 50:NEXT D
+7840 GOSUB 2500:REM borra "downloaded in Xs" de la M4
+7845 GOSUB 2000
+7850 GOSUB 9100
+7855 GOSUB 3000
+7860 GOSUB 9000
+7865 PRINT
+7870 PEN 2:PRINT "Preparando tu historia...":PEN 1
+7875 PEN 2:PRINT "-- Situacion --":PEN 1
+7880 GOSUB 7650:REM /intro del prompt/mundo actual en el PC
+7885 GOSUB 9100
+7890 GOSUB 3000
+7892 GOSUB 9000
+7894 TN%=0:PREV$=""
+7896 PRINT
+7898 PEN 2:PRINT "-- La aventura comienza --":PEN 1
+7899 PRINT:RETURN
 7900 REM --- diagnostico / debug D (M10) ---
 7910 PRINT
 7920 PEN 2:PRINT "=== SINTAXIA DEBUG ===":PEN 1

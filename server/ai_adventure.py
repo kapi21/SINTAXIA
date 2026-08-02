@@ -46,6 +46,241 @@ def load_system_prompt() -> str:
     return path.read_text(encoding="utf-8")
 
 
+def load_fixed_rules() -> str:
+    path = ROOT / "prompts" / "rules_fixed.txt"
+    if path.is_file():
+        return path.read_text(encoding="utf-8").strip()
+    # Fallback minimo si falta el fichero
+    return (
+        "REGLAS ESTRICTAS DE SALIDA:\n"
+        "T:texto|en|segmentos\nS:N\nE:0\n"
+        "Cada etiqueta en su linea. Max 40 chars por segmento T:. ASCII."
+    )
+
+
+_PROMPT_GEN_SYSTEM = (
+    "Eres un disenador de mundos para aventuras de texto (Amstrad CPC). "
+    "Respondes SOLO con el formato pedido en ASCII sin tildes ni enes, "
+    "sin markdown y sin explicaciones."
+)
+
+_PROMPT_GEN_USER = """Inventa un MUNDO NUEVO para una aventura conversacional (NO un castillo medieval clasico).
+
+NO escribas las reglas tecnicas T/S/E del juego: eso lo anade el servidor.
+Tu SOLO defines el mundo creativo y el estado inicial.
+
+Devuelve EXACTAMENTE:
+
+===WORLD===
+TITLE: nombre corto del escenario
+PREMISE: 2 a 4 frases con el trasfondo (quien es el jugador, que pasa)
+TONE: 3-6 palabras (ej. tension fria, misterio industrial)
+HOOK: una frase de gancho al empezar
+EXAMPLE_T: tres o cuatro segmentos unidos por | (max 40 chars cada uno, ASCII) como ejemplo de narracion de este mundo
+EXAMPLE_S: un numero 0-5 acorde al tono
+
+===STATE===
+L:lugar_inicial_corto
+I:objeto1, objeto2
+F:clave1=0
+F:clave2=1
+
+Notas STATE:
+- L: debe ser el sitio donde empieza el jugador (coherente con PREMISE)
+- I: 0 a 3 objetos iniciales (o linea I: vacia)
+- F: 1 a 4 flags snake_case con =0 o =1
+- Todo ASCII sin tildes
+
+No escribas nada fuera de ===WORLD=== y ===STATE===."""
+
+
+DEFAULT_START_STATE: dict[str, Any] = {
+    "location": "entrada del castillo",
+    "inventory": [],
+    "flags": {},
+}
+
+
+def _strip_fences(raw: str) -> str:
+    text = (raw or "").strip()
+    if text.startswith("```"):
+        lines = text.splitlines()
+        if lines:
+            lines = lines[1:]
+        if lines and lines[-1].strip().startswith("```"):
+            lines = lines[:-1]
+        text = "\n".join(lines).strip()
+    return text.strip()
+
+
+def _parse_state_block(block: str) -> dict[str, Any]:
+    """Parsea L:/I:/F: de un bloque STATE a dict GameState."""
+    loc = ""
+    inventory: list[str] = []
+    flags: dict[str, bool] = {}
+    for line in block.replace("\r\n", "\n").split("\n"):
+        s = line.strip()
+        if not s:
+            continue
+        up = s.upper()
+        if up.startswith("L:"):
+            loc = s[2:].strip()
+        elif up.startswith("I:"):
+            body = s[2:].strip()
+            if body:
+                inventory = [x.strip() for x in body.split(",") if x.strip()]
+        elif up.startswith("F:"):
+            body = s[2:].strip()
+            m = re.match(r"([A-Za-z0-9_]+)\s*=\s*([01]|si|no|true|false)", body, re.I)
+            if m:
+                flags[m.group(1).lower()] = m.group(2).lower() in ("1", "si", "true")
+    data = {
+        "location": loc or DEFAULT_START_STATE["location"],
+        "inventory": inventory,
+        "flags": flags,
+    }
+    return GameState.from_dict(data).to_dict()
+
+
+def _parse_world_fields(block: str) -> dict[str, str]:
+    fields = {
+        "title": "",
+        "premise": "",
+        "tone": "",
+        "hook": "",
+        "example_t": "",
+        "example_s": "2",
+    }
+    for line in block.replace("\r\n", "\n").split("\n"):
+        s = line.strip()
+        if not s or ":" not in s:
+            continue
+        key, val = s.split(":", 1)
+        key = key.strip().upper()
+        val = val.strip()
+        if key == "TITLE":
+            fields["title"] = val
+        elif key == "PREMISE":
+            fields["premise"] = val
+        elif key == "TONE":
+            fields["tone"] = val
+        elif key == "HOOK":
+            fields["hook"] = val
+        elif key == "EXAMPLE_T":
+            fields["example_t"] = val
+        elif key == "EXAMPLE_S":
+            digits = re.sub(r"\D", "", val)
+            if digits:
+                fields["example_s"] = str(max(0, min(5, int(digits[0]))))
+    return fields
+
+
+def assemble_system_prompt(world: dict[str, str], state: dict[str, Any]) -> str:
+    """Monta system prompt compatible: mundo generado + reglas fijas del servidor."""
+    rules = load_fixed_rules()
+    title = normalize_cpc(world.get("title") or "Aventura desconocida")
+    premise = normalize_cpc(world.get("premise") or "Despiertas en un lugar extrano.")
+    tone = normalize_cpc(world.get("tone") or "misterio")
+    hook = normalize_cpc(world.get("hook") or "Algo te espera.")
+    loc = normalize_cpc(str(state.get("location") or "lugar desconocido"))
+    example_t = world.get("example_t") or (
+        f"Estas en {loc}.|El aire es denso.|Que haces?"
+    )
+    example_t = normalize_cpc(example_t.replace("\n", "|"))
+    # Asegurar segmentos cortos
+    segs = [s.strip()[:40] for s in example_t.split("|") if s.strip()][:6]
+    if not segs:
+        segs = [f"Estas en {loc}."[:40], "Que haces?"]
+    example_t = "|".join(segs)
+    example_s = world.get("example_s") or "2"
+
+    inv = state.get("inventory") or []
+    inv_line = ", ".join(str(x) for x in inv) if inv else "(vacio)"
+    flags = state.get("flags") or {}
+
+    out = (
+        "Eres el Master de una aventura de texto clasica para Amstrad CPC (1984).\n"
+        "\n"
+        "MUNDO DE ESTA PARTIDA:\n"
+        f"- Titulo/tema: {title}\n"
+        f"- Premisa: {premise}\n"
+        f"- Tono: {tone}\n"
+        f"- El jugador empieza en: {loc}\n"
+        f"- Inventario inicial: {inv_line}\n"
+        f"- Gancho: {hook}\n"
+        "\n"
+        "REGLAS DE NARRATIVA Y COHERENCIA:\n"
+        "- Manten continuidad logica con el entorno, el historial y este mundo.\n"
+        "- Permanece en el lugar actual (L:) hasta que el jugador se mueva de forma explicita.\n"
+        "- Consecuencias directas y verosimiles; sin giros absurdos ni cambios de escenario sorpresa.\n"
+        "- No inventes objetos que contradigan el inventario salvo que el jugador los encuentre.\n"
+        "\n"
+        f"{rules}\n"
+        "\n"
+        "Ejemplo valido para ESTE mundo:\n"
+        f"T:{example_t}\n"
+        f"S:{example_s}\n"
+        "E:0\n"
+        f"L:{loc}\n"
+    )
+    if flags:
+        for k, v in sorted(flags.items()):
+            out += f"F:{k}={'1' if v else '0'}\n"
+    return out.strip()
+
+
+def parse_generated_bundle(raw: str) -> dict[str, Any]:
+    """Parsea WORLD+STATE del LLM y ensambla prompt compatible con el servidor."""
+    text = _strip_fences(raw)
+    # Compat: antiguos bloques ===PROMPT=== (se tratan como premise cruda)
+    if "===WORLD===" not in text.upper() and "===PROMPT===" in text.upper():
+        # Intentar recuperar STATE y usar el prompt viejo como premise
+        norm = text
+        for tag in ("===PROMPT===", "===STATE==="):
+            norm = re.sub(rf"^\s*{re.escape(tag)}\s*$", tag, norm, flags=re.I | re.M)
+        sp = re.split(r"^===STATE===\s*$", norm, maxsplit=1, flags=re.M)
+        old_prompt = re.sub(r"^===PROMPT===\s*", "", sp[0], flags=re.I | re.M).strip()
+        state_block = sp[1].strip() if len(sp) > 1 else ""
+        state = _parse_state_block(state_block) if state_block else dict(DEFAULT_START_STATE)
+        world = {
+            "title": "Aventura generada",
+            "premise": normalize_cpc(old_prompt)[:500],
+            "tone": "misterio",
+            "hook": "La aventura comienza.",
+            "example_t": f"Estas en {state['location']}.|Que haces?",
+            "example_s": "2",
+        }
+        return {"system": assemble_system_prompt(world, state), "state": state}
+
+    norm = text
+    for tag in ("===WORLD===", "===STATE==="):
+        norm = re.sub(rf"^\s*{re.escape(tag)}\s*$", tag, norm, flags=re.I | re.M)
+
+    world_block = ""
+    state_block = ""
+    parts = re.split(r"^===WORLD===\s*$", norm, maxsplit=1, flags=re.M)
+    if len(parts) == 2:
+        rest = parts[1]
+        sp = re.split(r"^===STATE===\s*$", rest, maxsplit=1, flags=re.M)
+        world_block = sp[0].strip()
+        state_block = sp[1].strip() if len(sp) > 1 else ""
+    else:
+        sp = re.split(r"^===STATE===\s*$", norm, maxsplit=1, flags=re.M)
+        world_block = sp[0].replace("===WORLD===", "").strip()
+        state_block = sp[1].strip() if len(sp) > 1 else ""
+
+    world = _parse_world_fields(world_block)
+    if not world["premise"] and not world["title"]:
+        raise RuntimeError(
+            "El modelo no devolvio un mundo usable. Reintenta o cambia de modelo."
+        )
+    state = _parse_state_block(state_block) if state_block.strip() else dict(DEFAULT_START_STATE)
+    if not world["example_t"]:
+        world["example_t"] = f"Estas en {state['location']}.|Que haces?"
+    system = assemble_system_prompt(world, state)
+    return {"system": system, "state": state}
+
+
 def infer_sound(text: str) -> int:
     low = text.lower()
     for keys, code in _SOUND_KEYWORDS:
@@ -55,24 +290,56 @@ def infer_sound(text: str) -> int:
 
 
 def _extract_packetish(raw: str) -> str:
-    raw = raw.strip()
+    raw = normalize_protocol_separators(raw.strip())
     raw = re.sub(r"```.*?```", "", raw, flags=re.S)
     m = re.search(r"(T:.*?)(?:\n\s*\n|$)", raw, flags=re.I | re.S)
     if m:
         block = m.group(1).strip()
-        rest = raw[m.end() : m.end() + 80]
+        rest = raw[m.end() : m.end() + 120]
         if not re.search(r"^S:", block, re.I | re.M):
-            sm = re.search(r"S:\s*(\d)", rest, re.I) or re.search(r"S:\s*(\d)", raw, re.I)
+            sm = re.search(r"^S:\s*(\d)", rest, re.I | re.M) or re.search(
+                r"S:\s*(\d)", raw, re.I
+            )
             if sm:
                 block += f"\nS:{sm.group(1)}"
         if not re.search(r"^E:", block, re.I | re.M):
-            em = re.search(r"E:\s*(\d)", rest, re.I) or re.search(r"E:\s*(\d)", raw, re.I)
+            em = re.search(r"^E:\s*(\d)", rest, re.I | re.M) or re.search(
+                r"E:\s*(\d)", raw, re.I
+            )
             if em:
                 block += f"\nE:{em.group(1)}"
             else:
                 block += "\nE:0"
         return block
     return raw
+
+
+def normalize_protocol_separators(raw: str) -> str:
+    """Convierte T:/S:2/E:0/I:... (mal formado) en lineas reales.
+
+    Algunos modelos (y prompts generados) unen campos con '/' en vez de CRLF.
+    """
+    if not raw:
+        return raw
+    text = raw.replace("\r\n", "\n").replace("\r", "\n")
+    # "/S:" "/E:" "/I:" "/L:" "/F:" -> salto de linea + etiqueta
+    text = re.sub(r"(?i)\s*/([TSEILF]):", r"\n\1:", text)
+    # Tambien "|S:" etc. si el meta va tras un pipe (no es linea de T:)
+    text = re.sub(r"(?i)\|([SEILF]):", r"\n\1:", text)
+    return text
+
+
+def scrub_narrative_leaks(text: str) -> str:
+    """Quita S:/E:/I:/L:/F: colados dentro del texto narrativo."""
+    if not text:
+        return text
+    # Corta desde el primer meta inline (/S: |S: o espacio+S:)
+    m = re.search(r"(?i)(?:[/|]\s*|(?<=\s))([SEILF]):", text)
+    if m:
+        text = text[: m.start()].rstrip(" /|\t")
+    # Pegado al final sin separador: "...norteS:2"
+    text = re.sub(r"(?i)(?<![A-Za-z0-9])([SEILF]):\S*.*$", "", text).rstrip()
+    return text.strip()
 
 
 def repack_llm_text(raw: str) -> str:
@@ -82,20 +349,22 @@ def repack_llm_text(raw: str) -> str:
         pkt["error"] == 1 and pkt["lines"] and "Sin texto" in pkt["lines"][0]
     ):
         text = normalize_cpc(re.sub(r"^T:", "", raw, flags=re.I))
-        text = re.sub(r"S:\s*\d", " ", text, flags=re.I)
-        text = re.sub(r"E:\s*\d", " ", text, flags=re.I)
+        text = scrub_narrative_leaks(text)
+        text = re.sub(r"(?i)[SEILF]:\s*\S+", " ", text)
         lines = wrap_lines(text, width=CPC_WIDTH, max_lines=CPC_MAX_LINES)
         sound = infer_sound(text)
         return build_packet(lines or ["El maestro duda un momento."], sound=sound, error=0)
 
     sound = pkt["sound"]
+    cleaned_parts = [scrub_narrative_leaks(x) for x in pkt["lines"]]
+    cleaned_parts = [x for x in cleaned_parts if x]
     if sound == 0:
-        sound = infer_sound(" ".join(pkt["lines"]))
-    joined = " ".join(pkt["lines"])
+        sound = infer_sound(" ".join(cleaned_parts))
+    joined = " ".join(cleaned_parts)
+    joined = scrub_narrative_leaks(joined)
     lines = wrap_lines(joined, width=CPC_WIDTH, max_lines=CPC_MAX_LINES)
     if not lines:
-        lines = pkt["lines"][:CPC_MAX_LINES]
-        lines = [normalize_cpc(x)[:CPC_WIDTH] for x in lines if normalize_cpc(x)]
+        lines = [normalize_cpc(x)[:CPC_WIDTH] for x in cleaned_parts[:CPC_MAX_LINES] if normalize_cpc(x)]
     return build_packet(lines, sound=sound, error=0)
 
 
@@ -228,16 +497,27 @@ class AdventureAI:
         self.history: list[dict[str, str]] = []
         self.max_history = 6
         self.state = GameState()
+        self.start_state: dict[str, Any] = dict(DEFAULT_START_STATE)
         self.last_user = ""
         self.last_packet = ""
         self.last_error = ""
+        self._intro_packet: str | None = None
+        self._intro_key = ""
 
-    def reset(self) -> None:
+    def reset(self) -> str:
+        """Reinicia historial y estado al mundo base actual del servidor."""
         self.history.clear()
-        self.state.reset()
-        self.last_user = ""
-        self.last_packet = ""
+        self.state = GameState.from_dict(self.start_state)
+        self.last_user = "(reset)"
         self.last_error = ""
+        inv = ", ".join(self.state.inventory) if self.state.inventory else "(vacio)"
+        packet = packet_from_text(
+            f"Partida reiniciada. Lugar: {self.state.location}. Llevas: {inv}.",
+            sound=0,
+            error=0,
+        )
+        self.last_packet = packet
+        return packet
 
     def export_save(self) -> dict[str, Any]:
         hist = self.history[-(self.max_history * 2) :]
@@ -330,7 +610,32 @@ class AdventureAI:
             except (TypeError, ValueError):
                 pass
         if "system" in data and isinstance(data["system"], str) and data["system"].strip():
-            self.system = data["system"]
+            new_sys = data["system"]
+            if new_sys != self.system:
+                self._intro_packet = None
+                self._intro_key = ""
+            self.system = new_sys
+        if "start_state" in data and isinstance(data["start_state"], dict):
+            self.start_state = GameState.from_dict(data["start_state"]).to_dict()
+            self.state = GameState.from_dict(self.start_state)
+            self.history.clear()
+            self._intro_packet = None
+            self._intro_key = ""
+            self.last_error = ""
+            self.last_user = "(nuevo mundo)"
+            inv = ", ".join(self.state.inventory) if self.state.inventory else "(vacio)"
+            self.last_packet = packet_from_text(
+                f"Nuevo mundo. Lugar: {self.state.location}. Llevas: {inv}.",
+                sound=0,
+                error=0,
+            )
+        elif data.get("reset_start_state"):
+            self.start_state = dict(DEFAULT_START_STATE)
+            self.state = GameState.from_dict(self.start_state)
+            self.history.clear()
+            self._intro_packet = None
+            self._intro_key = ""
+            self.last_user = "(mundo por defecto)"
 
     def _messages(self, user_msg: str) -> list[dict[str, str]]:
         system = self.system + "\n\n" + self.state.summary_for_prompt()
@@ -435,6 +740,155 @@ class AdventureAI:
             return self._chat_gemini(user_msg, timeout)
         return self._chat_ollama(user_msg, timeout)
 
+    def _one_shot_chat(self, system: str, user: str, timeout: float = 120.0) -> str:
+        """Chat sin historial ni estado de partida (para generar prompts)."""
+        messages = [
+            {"role": "system", "content": system},
+            {"role": "user", "content": user},
+        ]
+        if self.provider in ("openai", "openai_compat"):
+            payload = {
+                "model": self.model,
+                "messages": messages,
+                "temperature": min(1.0, max(0.4, self.temperature)),
+                "max_tokens": 1800,
+            }
+            headers = {"Content-Type": "application/json"}
+            if self.api_key:
+                headers["Authorization"] = f"Bearer {self.api_key}"
+            data = self._post_json(
+                openai_chat_url(self.api_base), payload, headers, timeout
+            )
+            return extract_openai_text(data)
+        if self.provider == "claude":
+            payload = build_claude_payload(
+                self.model, system, messages, min(1.0, max(0.4, self.temperature)), 1800
+            )
+            headers = {
+                "Content-Type": "application/json",
+                "x-api-key": self.api_key,
+                "anthropic-version": ANTHROPIC_VERSION,
+            }
+            data = self._post_json(claude_url(self.api_base), payload, headers, timeout)
+            return extract_claude_text(data)
+        if self.provider == "gemini":
+            if not self.api_key.strip():
+                raise RuntimeError("Falta API key de Gemini.")
+            payload = build_gemini_payload(
+                system, messages, min(1.0, max(0.4, self.temperature)), 1800
+            )
+            url = gemini_url(self.api_base, self.model)
+            url = f"{url}?key={urllib.parse.quote(self.api_key, safe='')}"
+            headers = {
+                "Content-Type": "application/json",
+                "x-goog-api-key": self.api_key,
+            }
+            data = self._post_json(url, payload, headers, timeout)
+            text = extract_gemini_text(data)
+            if not text.strip():
+                raise RuntimeError(f"Gemini respondio vacio: {json.dumps(data)[:300]}")
+            return text
+        # ollama
+        payload = {
+            "model": self.model,
+            "messages": messages,
+            "stream": False,
+            "options": {
+                "temperature": min(1.0, max(0.4, self.temperature)),
+                "num_predict": 1800,
+            },
+        }
+        data = self._post_json(
+            self.ollama_url,
+            payload,
+            {"Content-Type": "application/json"},
+            timeout,
+        )
+        return data["message"]["content"]
+
+    def generate_system_prompt(self, timeout: float = 120.0) -> dict[str, Any]:
+        """Genera system prompt + estado inicial (no modifica self hasta Guardar)."""
+        raw = self._one_shot_chat(_PROMPT_GEN_SYSTEM, _PROMPT_GEN_USER, timeout=timeout)
+        return parse_generated_bundle(raw)
+
+    def intro_packet(self, use_llm: bool = True, timeout: float = 120.0) -> str:
+        """Paquete narrativo de arranque segun prompt + estado actual (cacheado)."""
+        st = self.state.to_dict()
+        cache_key = self.system.strip() + "\n" + json.dumps(st, ensure_ascii=True, sort_keys=True)
+        if self._intro_packet and self._intro_key == cache_key:
+            return self._intro_packet
+
+        loc = st.get("location") or "un lugar desconocido"
+        inv_list = st.get("inventory") or []
+        inv = ", ".join(inv_list) if inv_list else "(nada)"
+        flags = st.get("flags") or {}
+        flag_txt = (
+            ", ".join(f"{k}={'si' if v else 'no'}" for k, v in sorted(flags.items()))
+            if flags
+            else "(ninguno)"
+        )
+
+        fallback = packet_from_text(
+            f"Estas en {loc}. Miras a tu alrededor. "
+            f"{'Llevas: ' + inv + '. ' if inv_list else ''}"
+            "El ambiente te rodea en silencio. Que haces?",
+            sound=2,
+            error=0,
+        )
+        if not use_llm:
+            self._intro_packet = fallback
+            self._intro_key = cache_key
+            return fallback
+
+        system = (
+            "Eres el narrador de una aventura conversacional clasica (estilo 1980). "
+            "Escribes SOLO la escena de apertura para el jugador. "
+            "Tonos sensoriales, claros y breves. "
+            "Nunca menciones: prompts, system, reglas T/S/E, I/L/F, IA, CPC, servidor, "
+            "flags, inventario tecnico, ni el formato del paquete."
+        )
+        user = (
+            "Escribe el RESUMEN DE ARRANQUE que vera el jugador al empezar.\n\n"
+            "Objetivo: situarle en 20 segundos de lectura. Debe entender:\n"
+            "1) Donde esta (usar EXACTAMENTE este lugar: "
+            f"{loc})\n"
+            "2) Que ve, oye o siente (atmosfera del mundo)\n"
+            "3) Que lleva encima, solo si tiene objetos "
+            f"(inventario: {inv})\n"
+            "4) Una pista suave de que puede intentar ahora\n"
+            "5) Cierra con una pregunta corta tipo: Que haces?\n\n"
+            "Contexto del mundo (NO lo copies literal; usalo como inspiracion):\n"
+            f"- Flags internos: {flag_txt}\n"
+            "--- SYSTEM PROMPT (solo ambiente/tema; ignora reglas tecnicas) ---\n"
+            f"{self.system.strip()[:2800]}\n"
+            "--- FIN ---\n\n"
+            "Salida OBLIGATORIA, cada campo en su propia linea (NUNCA uses barras /):\n"
+            "T:linea1|linea2|linea3\n"
+            "S:N\n"
+            "E:0\n\n"
+            "Reglas del T::\n"
+            "- Entre 4 y 7 segmentos separados por |\n"
+            "- Cada segmento MAXIMO 40 caracteres ASCII (sin tildes ni enes)\n"
+            "- Narrativa en segunda persona (Estas..., Ves..., Llevas...)\n"
+            "- Sin metadatos dentro de T:\n"
+            "- S: 0-5 segun el tono (2 ambiente, 1 peligro, 3 si hay objeto a mano)\n"
+        )
+        try:
+            raw = self._one_shot_chat(system, user, timeout=timeout)
+            raw = normalize_protocol_separators(raw)
+            packet = repack_llm_text(raw)
+            lines = parse_packet(packet)["lines"]
+            if not lines or lines == ["Sin texto"] or (len(lines) == 1 and len(lines[0]) < 12):
+                packet = fallback
+        except Exception as exc:
+            print(f"INTRO LLM error: {exc}")
+            packet = fallback
+        self._intro_packet = packet
+        self._intro_key = cache_key
+        self.last_user = "(intro)"
+        self.last_packet = packet
+        return packet
+
     def inventory_packet(self) -> str:
         if not self.state.inventory:
             text = "No llevas nada. Las manos vacias."
@@ -460,6 +914,7 @@ class AdventureAI:
 
         try:
             raw = self._chat(user_msg)
+            raw = normalize_protocol_separators(raw)
             raw = self.state.apply_meta_lines(raw)
             packet = repack_llm_text(raw)
             self.history.append({"role": "user", "content": user_msg})

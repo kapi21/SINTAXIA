@@ -23,7 +23,14 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from urllib.parse import parse_qs, unquote_plus, urlparse
 
-from ai_adventure import DEFAULT_MODEL, AdventureAI, list_ollama_models, list_provider_models
+from ai_adventure import (
+    DEFAULT_MODEL,
+    DEFAULT_START_STATE,
+    AdventureAI,
+    list_ollama_models,
+    list_provider_models,
+    load_system_prompt,
+)
 from protocol import build_packet, packet_from_text, parse_packet
 from save_game import delete_slot, list_slots, load_slot, save_slot, validate_slot
 
@@ -278,6 +285,20 @@ class AdventureHandler(BaseHTTPRequestHandler):
             self._send_json({"slots": list_slots()})
             return
 
+        if path == "/api/default_prompt":
+            try:
+                system = load_system_prompt()
+                self._send_json(
+                    {
+                        "ok": True,
+                        "system": system,
+                        "state": dict(DEFAULT_START_STATE),
+                    }
+                )
+            except Exception as exc:
+                self._send_json({"ok": False, "error": str(exc)}, 500)
+            return
+
         if path == "/ping":
             with _state_lock:
                 mode = "mock" if _use_mock else "ollama"
@@ -287,11 +308,26 @@ class AdventureHandler(BaseHTTPRequestHandler):
             self._send_plain(body)
             return
 
+        if path == "/intro":
+            with _state_lock:
+                use_mock = _use_mock
+                ai = ensure_ai()
+            with _turn_lock:
+                print(f"INTRO mock={use_mock} provider={ai.provider}")
+                body = ai.intro_packet(use_llm=not use_mock)
+            self._send_plain(body)
+            return
+
         if path == "/reset":
             with _state_lock:
                 if _ai is not None:
-                    _ai.reset()
-            body = packet_from_text("Nueva partida. Estas en el castillo.", sound=0, error=0)
+                    body = _ai.reset()
+                else:
+                    body = packet_from_text(
+                        "Partida reiniciada. Estas en la entrada del castillo.",
+                        sound=0,
+                        error=0,
+                    )
             self._send_plain(body)
             return
 
@@ -339,11 +375,13 @@ class AdventureHandler(BaseHTTPRequestHandler):
         if path == "/api/reset":
             with _state_lock:
                 if _ai is not None:
-                    _ai.reset()
-                body = packet_from_text("Nueva partida. Estas en el castillo.", sound=0, error=0)
-                if _ai is not None:
-                    _ai.last_packet = body
-                    _ai.last_user = "(reset)"
+                    body = _ai.reset()
+                else:
+                    body = packet_from_text(
+                        "Partida reiniciada. Estas en la entrada del castillo.",
+                        sound=0,
+                        error=0,
+                    )
             self._send_json({"ok": True, "packet": body})
             return
 
@@ -393,6 +431,35 @@ class AdventureHandler(BaseHTTPRequestHandler):
                     self._send_json({"ok": False, "error": str(exc)}, 400)
             return
 
+        if path == "/api/generate_prompt":
+            with _state_lock:
+                if _use_mock:
+                    self._send_json(
+                        {
+                            "ok": False,
+                            "error": "Desactiva MOCK y guarda un proveedor IA antes de generar.",
+                        },
+                        400,
+                    )
+                    return
+                ai = ensure_ai()
+            # LLM lento: fuera de _state_lock, serializado con _turn_lock
+            with _turn_lock:
+                try:
+                    print(f"GENERATE_PROMPT provider={ai.provider} model={ai.model}")
+                    bundle = ai.generate_system_prompt()
+                    self._send_json(
+                        {
+                            "ok": True,
+                            "system": bundle["system"],
+                            "state": bundle["state"],
+                        }
+                    )
+                except Exception as exc:
+                    print(f"GENERATE_PROMPT error: {exc}")
+                    self._send_json({"ok": False, "error": str(exc)}, 500)
+            return
+
         self._send_json({"ok": False, "error": "not found"}, 404)
 
 
@@ -425,6 +492,11 @@ def main() -> None:
     )
     parser.add_argument("--api-base", default="", help="Base URL API (OpenAI/Claude/Gemini/compat)")
     parser.add_argument("--api-key", default="", help="API key (memoria; no se guarda a disco)")
+    parser.add_argument(
+        "--no-browser",
+        action="store_true",
+        help="No abrir el panel /ui en el navegador al arrancar",
+    )
     args = parser.parse_args()
 
     _use_mock = args.mock
@@ -446,9 +518,19 @@ def main() -> None:
 
     server = ThreadingHTTPServer((args.host, args.port), AdventureHandler)
     lan_ip = get_lan_ip()
+    ui_url = f"http://127.0.0.1:{args.port}/ui"
     print(f"Servidor en todas las interfaces (0.0.0.0:{args.port})")
-    print(f"Panel web (PC): http://127.0.0.1:{args.port}/ui")
+    print(f"Panel web (PC): {ui_url}")
     print(f"CPC (Wi-Fi LAN): http://{lan_ip}:{args.port}/ (pon P$=\"{lan_ip}:{args.port}\" en BASIC)")
+
+    if not args.no_browser:
+        # Tras un instante para que el socket ya este escuchando
+        def _open_ui() -> None:
+            import webbrowser
+
+            webbrowser.open(ui_url)
+
+        threading.Timer(0.6, _open_ui).start()
 
     try:
         server.serve_forever()

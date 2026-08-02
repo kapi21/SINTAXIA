@@ -2,7 +2,7 @@
 
 **Aventura conversacional con IA para Amstrad CPC + M4 Board**
 
-Versión del manual: 2026-08-02 v2  
+Versión del manual: 2026-08-02 v3  
 Repositorio: https://github.com/kapi21/SINTAXIA
 
 ---
@@ -228,7 +228,8 @@ Orden recomendado:
 
 | Comando | Efecto |
 |---------|--------|
-| `run_server.bat` | IA con Ollama, modelo por defecto |
+| `run_server.bat` | IA con Ollama; abre el panel `/ui` en el navegador |
+| `run_server.bat --no-browser` | Igual sin abrir el navegador |
 | `run_server.bat --mock` | Sin LLM; respuestas por palabras clave |
 | `run_server.bat --model llama3.1:8b` | Elige modelo Ollama |
 | `run_server.bat --provider openai` | OpenAI oficial (`api.openai.com`; usa `--api-key`) |
@@ -271,10 +272,12 @@ El panel imita un monitor CPC (borde azul, tipografia pixel, arte hero).
 | **URL Ollama chat** | Por defecto `http://127.0.0.1:11434/api/chat`. Cambiala solo si Ollama esta en otra maquina/puerto. |
 | **Base API** | URL base del proveedor cloud o compatible. Al cambiar proveedor el panel rellena un valor tipico. |
 | **API key** | Clave OpenAI / Anthropic / Google. Solo en **memoria** del servidor. No hace falta con Ollama local. Al pegar la key, el panel carga los modelos automáticamente (debounce 700ms). |
-| **System prompt** | Instrucciones del Master (formato `T:/S:/E:`, limites de texto, metadatos `I:/L:/F:`…). Puedes editarlo y pulsar **Guardar**. |
-| **Guardar** | Aplica en el servidor la config del formulario (modo, proveedor, modelo, temperatura, URLs, prompt, key si la escribiste). Tras guardar recarga los modelos disponibles. |
-| **Modelos ↺** | Consulta la API del proveedor actual y rellena el selector con los modelos disponibles. Para OpenAI/Claude/Gemini necesita la API key en el campo (o ya guardada en el servidor). |
-| **Nueva** | Reinicia historial + inventario/lugar/flags (nueva partida). Equivale a `/reset`. |
+| **System prompt** | Instrucciones del Master. Editable a mano. Ver tambien **Generar prompt** / **Prompt por defecto**. |
+| **Generar prompt** | La IA inventa solo el **mundo** (tema, tono, lugar…); el servidor anade las **reglas fijas** (`prompts/rules_fixed.txt`) y un **estado inicial** (lugar/inventario/flags). Revisa el texto y pulsa **Guardar**. |
+| **Prompt por defecto** | Restaura `prompts/master.txt` + estado clasico (entrada del castillo). Luego **Guardar**. |
+| **Guardar** | Aplica config (y el `start_state` pendiente si viniste de Generar/Por defecto). |
+| **Modelos ↺** | Consulta la API del proveedor actual y rellena el selector. |
+| **Nueva** | Reinicia la partida al **mundo base** actual del servidor (`/reset` / `start_state`). |
 | **Refresh** | Recarga estado mostrado sin cambiar config. |
 
 ### 7.2 Panel derecho — Paquete al CPC / partida
@@ -311,12 +314,12 @@ El panel imita un monitor CPC (borde azul, tipografia pixel, arte hero).
 
 Al hacer `RUN"aventura`:
 
-1. Paleta MODE 1 (fondo negro, texto ambar).
-2. Titulo **SINTAXIA** y explicacion breve.
-3. Lista de comandos.
-4. **Comprobando servidor…** (ping a `/ping`).
-5. Si OK: **SERVIDOR ACTIVO** y ejemplo `miro alrededor`.
-6. Si falla: indica `run_server.bat`, IP esperada; `R` reintenta, **espacio** continua igual (sin garantia de red).
+1. (Opcional) Splash grafico `TITLE.SCR` → pulsa **ESPACIO**.
+2. Paleta MODE 1 + destello CRT.
+3. Titulo **SINTAXIA**, ayuda breve y lista de comandos.
+4. **Comprobando servidor…** (`/ping`).
+5. Si OK: **SERVIDOR ACTIVO** → **Situacion** (`/intro`: resumen narrativo del mundo actual, sin tecnicismos).
+6. Si falla: indica `run_server.bat` e IP; `R` reintenta, **espacio** continua sin garantia de red.
 
 ### 8.2 Bucle de juego
 
@@ -343,10 +346,10 @@ Limites practicos:
   - `S=1` (peligro) / `S=4` (combate): Tinta roja alerta (`PEN 3`).
   - `S=3` (objeto) / `S=5` (victoria): Tinta verde brillante (`PEN 2`).
 - **Borde dinamico**: Cambia de color segun `S:` (peligro, cueva, tesoro, combate, victoria).
-- **Animacion Pensando...**: Muestra feedback de puntos con tonos progresivos de audio antes de la peticion HTTP.
-- **Paginacion automatica**: Tras 4 lineas impresas de respuesta, pausa la pantalla con `[ESPACIO para continuar]`.
-- **Efecto CRT Flash**: Destello inicial de pantalla al arrancar el programa.
-- **SOUND** con envolventes `ENV`/`ENT` (peligro grave, eco, arpegio, golpe+ruido, fanfarria).
+- **Animacion Pensando...**: Feedback antes de la peticion HTTP.
+- **Efecto CRT Flash**: Destello inicial al arrancar.
+- **SOUND** con envolventes `ENV`/`ENT` (peligro, eco, arpegio, golpe, fanfarria).
+- El texto de cada turno se imprime **completo** (sin pausa `[ESPACIO para continuar]`).
 
 ---
 
@@ -359,14 +362,14 @@ Todo se escribe en el prompt `>` (mayusculas/minusculas toleradas en la mayoria)
 | Comando | Accion |
 |---------|--------|
 | `AYUDA` | Muestra ayuda e IP del servidor (`P$`). |
-| `NUEVA` | Pide `/reset`: nueva partida (limpia historial y estado en el PC). |
+| `NUEVA` / `REINICIO` | `/reset` al **start_state** del servidor + vuelve a mostrar `/intro` (situacion). |
 | `INV` / `inventario` / `objetos` | Lista lo que llevas (sin llamar a la IA). |
 | `SAVE 1` … `SAVE 3` | Guarda partida en ese slot (tambien `GUARDAR 1`). |
 | `LOAD 1` … `LOAD 3` | Carga ese slot (tambien `CARGAR 1`). |
 | `SAVES` / `PARTIDAS` | Lista slots ocupados/vacios. |
 | `!` | Repite el ultimo comando introducido. |
 | `D` / `DEBUG` | Pantalla de diagnostico (IP host, ultima URL, turnos, estado red). |
-| `QUIT` | Sale del programa. |
+| `QUIT` | Auto-guarda slot 1 y reinicia el CPC (`CALL 0`). |
 
 Cualquier otra frase se interpreta como **accion de aventura** y se envia a `/turn`.
 
@@ -415,10 +418,17 @@ Metadatos que la IA puede enviar (`I:+llave`, `L:cripta`, `F:puerta=1`) **los pr
 T:linea1|linea2|linea3
 S:2
 E:0
+I:+objeto
+L:lugar
+F:clave=1
 ```
 
-- `E:0` = ok · `E:1` = error (mensaje en `T:`)
-- Fin de linea **CRLF** (importante para `LINE INPUT`)
+- `T:` narracion (solo esto lee el jugador en el Amstrad)
+- `S:` sonido 0-5 · `E:0` ok / `E:1` error
+- `I:` / `L:` / `F:` solo en el PC (inventario, lugar, flags)
+- Cada etiqueta en **linea propia**; nunca unir con `/`
+- Fin de linea **CRLF**
+- Esquema detallado: [ESQUEMA_PAQUETE.md](ESQUEMA_PAQUETE.md)
 
 ### 10.3 Estado de partida (PC)
 

@@ -449,6 +449,14 @@
                       data-tip-title="SYSTEM PROMPT"
                       data-tip="Instrucciones fijas del maestro: tono, reglas de la aventura y formato. Cambialo con cuidado: afecta a toda la partida."></textarea>
             <div class="actions">
+              <button id="btnGenPrompt"
+                      data-tip-title="GENERAR PROMPT"
+                      data-tip="La IA solo inventa el mundo; el servidor anade las reglas fijas T/S/E compatibles. Luego Guardar.">Generar prompt</button>
+              <button id="btnDefaultPrompt"
+                      data-tip-title="PROMPT POR DEFECTO"
+                      data-tip="Restaura master.txt y estado clasico (entrada del castillo). Pulsa Guardar para aplicar.">Prompt por defecto</button>
+            </div>
+            <div class="actions">
               <button class="primary" id="btnSave"
                       data-tip-title="GUARDAR CONFIG"
                       data-tip="Aplica en el servidor el modo, proveedor, modelo, temperatura, URLs, clave y prompt. Sin esto, los cambios no cuentan.">Guardar</button>
@@ -464,7 +472,7 @@
             </div>
             <p class="hint"
                data-tip-title="RUTAS"
-               data-tip="El Amstrad usa /ping, /turn y /reset. Este panel vive en /ui.">CPC: /ping /turn /reset — Panel: /ui</p>
+               data-tip="El Amstrad usa /ping, /intro, /turn y /reset. Este panel vive en /ui.">CPC: /ping /intro /turn /reset — Panel: /ui</p>
           </section>
 
           <section class="panel">
@@ -815,8 +823,60 @@
       // Carga silenciosa de modelos (usa la key del servidor si está guardada)
       loadModels(true);
     }
+    let pendingStartState = null;
+
     $("btnRefresh").onclick = () => refresh().catch(e => toast(String(e)));
     $("btnModels").onclick = () => loadModels(false);
+    $("btnDefaultPrompt").onclick = async () => {
+      try {
+        const data = await api("/api/default_prompt");
+        if (!data.ok) {
+          toast(data.error || "ERROR PROMPT");
+          return;
+        }
+        $("system").value = data.system || "";
+        pendingStartState = data.state || {
+          location: "entrada del castillo",
+          inventory: [],
+          flags: {},
+        };
+        toast("PROMPT+ESTADO POR DEFECTO (guarda)");
+      } catch (e) {
+        toast(String(e));
+      }
+    };
+    $("btnGenPrompt").onclick = async () => {
+      const btn = $("btnGenPrompt");
+      const prev = btn.textContent;
+      if ($("mode").value === "mock") {
+        toast("DESACTIVA MOCK Y GUARDA");
+        return;
+      }
+      btn.disabled = true;
+      btn.textContent = "Generando…";
+      toast("GENERANDO MUNDO…");
+      try {
+        const r = await fetch("/api/generate_prompt", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: "{}",
+        });
+        const data = await r.json();
+        if (!r.ok || !data.ok) {
+          toast(data.error || ("HTTP " + r.status));
+          return;
+        }
+        $("system").value = data.system || "";
+        pendingStartState = data.state || null;
+        const loc = (pendingStartState && pendingStartState.location) || "?";
+        toast("MUNDO LISTO: " + loc + " (guarda)");
+      } catch (e) {
+        toast(String(e));
+      } finally {
+        btn.textContent = prev;
+        btn.disabled = false;
+      }
+    };
     $("btnSave").onclick = async () => {
       const body = {
         mock: $("mode").value === "mock",
@@ -828,6 +888,9 @@
         openai_base: $("api_base").value,
         system: $("system").value,
       };
+      if (pendingStartState) {
+        body.start_state = pendingStartState;
+      }
       const key = $("api_key").value.trim();
       if (key) body.api_key = key;
       const needsKey = NEEDS_KEY.has(body.provider);
@@ -840,6 +903,7 @@
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(body),
       });
+      pendingStartState = null;
       toast("CONFIG OK");
       // Guardamos la key antes de que fill() la limpie para pasarla a loadModels
       const savedKey = key;
