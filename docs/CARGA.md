@@ -28,18 +28,19 @@ Invoke-WebRequest -Uri "http://192.168.1.4:8080/turn?msg=miro+la+cueva" -UseBasi
 3. Alternativa M4 Web UI: `http://192.168.1.128` → subir fichero.
 
 ### Regenerar TITLE.SCR (PC)
-Si cambia el arte `server/web/hero.png`:
+Si cambia el arte de origen:
 ```powershell
 python tools/make_title_scr.py
 ```
-Genera `client/TITLE.SCR` y un preview `client/title_preview.png`.
+Genera `TITLE.SCR` y preview PNG.
 
 ## En el CPC
 ```
 |NETSTAT
 RUN"aventura
 ```
-Primero veras el titulo grafico: pulsa **ESPACIO**. Luego la intro y el ping al servidor.  
+Primero el titulo grafico (jingle) → **ESPACIO**. Luego ayuda → **ESPACIO**, ping, y el resumen **MUNDO** completo (si es largo, **ESPACIO** entre paginas).  
+Si al cargar el `.bas` sale **Overflow**, revisa que no haya numeros de linea >32767.  
 Prueba mensajes: `miro la cueva`, `cojo la espada`, `atacar`, `tesoro`, `QUIT`
 
 ## Si falla la red

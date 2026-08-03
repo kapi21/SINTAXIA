@@ -2,7 +2,7 @@
 
 **Aventura conversacional con IA para Amstrad CPC + M4 Board**
 
-Versión del manual: 2026-08-02 v4  
+Versión del manual: 2026-08-03 v5  
 Repositorio: https://github.com/kapi21/SINTAXIA
 
 ---
@@ -330,12 +330,14 @@ No confundir con las **partidas** (`server/saves/slotN.json`): eso es inventario
 
 Al hacer `RUN"aventura`:
 
-1. (Opcional) Splash grafico `TITLE.SCR` → pulsa **ESPACIO**.
-2. Paleta MODE 1 + destello CRT.
-3. Titulo **SINTAXIA**, ayuda breve y lista de comandos.
+1. Paleta MODE 1 + destello CRT.
+2. (Opcional) Splash grafico `TITLE.SCR` con **jingle AY** corto → pulsa **ESPACIO** (corta el sonido).
+3. Pantalla de ayuda (comandos + IP `P$`) con tono suave en espera → **ESPACIO**.
 4. **Comprobando servidor…** (`/ping`).
-5. Si OK: **SERVIDOR ACTIVO** → **Situacion** (`/intro`: resumen narrativo del mundo actual, sin tecnicismos).
+5. Si OK: **SERVIDOR ACTIVO** → **Situacion** (`/intro`: bloque MUNDO completo del prompt; sin LLM; si hay muchas lineas, **ESPACIO** entre paginas).
 6. Si falla: indica `run_server.bat` e IP; `R` reintenta, **espacio** continua sin garantia de red.
+
+Nota CPC: al editar `aventura.bas` en ASCII, evita numeros de linea **>32767** (provoca **Overflow** al cargar).
 
 ### 8.2 Bucle de juego
 
@@ -362,10 +364,11 @@ Limites practicos:
   - `S=1` (peligro) / `S=4` (combate): Tinta roja alerta (`PEN 3`).
   - `S=3` (objeto) / `S=5` (victoria): Tinta verde brillante (`PEN 2`).
 - **Borde dinamico**: Cambia de color segun `S:` (peligro, cueva, tesoro, combate, victoria).
-- **Animacion Pensando...**: Feedback antes de la peticion HTTP.
+- **Animacion Pensando...**: Spinner `/-\|` y tono corto antes del HTTP.
+- **Jingle de titulo** y ambiente en la pantalla de ayuda (solo en esas esperas).
 - **Efecto CRT Flash**: Destello inicial al arrancar.
 - **SOUND** con envolventes `ENV`/`ENT` (peligro, eco, arpegio, golpe, fanfarria).
-- El texto de cada turno se imprime **completo** (sin pausa `[ESPACIO para continuar]`).
+- El texto de cada **turno** se imprime **completo** (sin pausa). La **Situacion** (`/intro`) si puede pedir ESPACIO entre paginas.
 
 ---
 

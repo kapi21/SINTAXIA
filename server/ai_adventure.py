@@ -216,6 +216,7 @@ def assemble_system_prompt(world: dict[str, str], state: dict[str, Any]) -> str:
         "- Permanece en el lugar actual (L:) hasta que el jugador se mueva de forma explicita.\n"
         "- Consecuencias directas y verosimiles; sin giros absurdos ni cambios de escenario sorpresa.\n"
         "- No inventes objetos que contradigan el inventario salvo que el jugador los encuentre.\n"
+        "- Escribe con coherencia: mayusculas, puntuacion y gramatica correctas (ASCII sin tildes).\n"
         "\n"
         f"{rules}\n"
         "\n"
@@ -229,6 +230,86 @@ def assemble_system_prompt(world: dict[str, str], state: dict[str, Any]) -> str:
         for k, v in sorted(flags.items()):
             out += f"F:{k}={'1' if v else '0'}\n"
     return out.strip()
+
+
+_MUNDO_FIELD_PATTERNS: tuple[tuple[str, str], ...] = (
+    ("title", r"(?im)^\s*-\s*Titulo/tema:\s*(.+)$"),
+    ("premise", r"(?im)^\s*-\s*Premisa:\s*(.+)$"),
+    ("tone", r"(?im)^\s*-\s*Tono:\s*(.+)$"),
+    ("location", r"(?im)^\s*-\s*El jugador empieza en:\s*(.+)$"),
+    ("inventory", r"(?im)^\s*-\s*Inventario inicial:\s*(.+)$"),
+    ("hook", r"(?im)^\s*-\s*Gancho:\s*(.+)$"),
+)
+
+
+def parse_mundo_fields(system: str) -> dict[str, str]:
+    """Extrae campos del bloque MUNDO DE ESTA PARTIDA del system prompt."""
+    text = system or ""
+    m = re.search(
+        r"MUNDO DE ESTA PARTIDA:\s*(.*?)(?=\n\s*REGLAS|\n\s*===|\Z)",
+        text,
+        flags=re.I | re.S,
+    )
+    block = m.group(1) if m else text
+    out: dict[str, str] = {}
+    for key, pat in _MUNDO_FIELD_PATTERNS:
+        fm = re.search(pat, block)
+        if fm:
+            out[key] = normalize_cpc(fm.group(1).strip())
+    return out
+
+
+# Tope amplio solo para /intro (resumen MUNDO completo). Turnos siguen en 12.
+CPC_INTRO_MAX_LINES = 60
+
+
+def build_mundo_intro_lines(system: str, state: dict[str, Any] | None = None) -> list[str]:
+    """Lineas T: del resumen inicial = bloque MUNDO completo (wrap 40, sin tope 12)."""
+    st = state or {}
+    fields = parse_mundo_fields(system)
+    loc = fields.get("location") or normalize_cpc(str(st.get("location") or "lugar desconocido"))
+    inv = fields.get("inventory")
+    if not inv:
+        inv_list = st.get("inventory") or []
+        inv = ", ".join(str(x) for x in inv_list) if inv_list else "(vacio)"
+    inv = normalize_cpc(inv)
+
+    chunks = [
+        "MUNDO DE ESTA PARTIDA:",
+        f"Titulo: {fields['title']}" if fields.get("title") else "",
+        f"Premisa: {fields['premise']}" if fields.get("premise") else "",
+        f"Tono: {fields['tone']}" if fields.get("tone") else "",
+        f"Lugar: {loc}",
+        f"Inventario: {inv}",
+        f"Gancho: {fields['hook']}" if fields.get("hook") else "",
+    ]
+    lines: list[str] = []
+    for chunk in chunks:
+        chunk = chunk.strip()
+        if not chunk:
+            continue
+        wrapped = [
+            L for L in wrap_lines(chunk, width=CPC_WIDTH, max_lines=CPC_INTRO_MAX_LINES) if L.strip()
+        ]
+        lines.extend(wrapped)
+        if len(lines) >= CPC_INTRO_MAX_LINES:
+            break
+    # Sin renglones vacios entre bloques
+    return [L for L in lines[:CPC_INTRO_MAX_LINES] if L.strip()] or [
+        "MUNDO DE ESTA PARTIDA:",
+        f"Lugar: {loc}",
+    ]
+
+
+def build_mundo_intro_packet(system: str, state: dict[str, Any] | None = None) -> str:
+    lines = build_mundo_intro_lines(system, state)
+    return build_packet(
+        lines,
+        sound=2,
+        error=0,
+        max_lines=max(len(lines), 1),
+        ellipsis=False,
+    )
 
 
 def parse_generated_bundle(raw: str) -> dict[str, Any]:
@@ -358,15 +439,19 @@ def repack_llm_text(raw: str) -> str:
         return build_packet(lines or ["El maestro duda un momento."], sound=sound, error=0)
 
     sound = pkt["sound"]
-    cleaned_parts = [scrub_narrative_leaks(x) for x in pkt["lines"]]
+    cleaned_parts = [scrub_narrative_leaks(x).strip() for x in pkt["lines"]]
     cleaned_parts = [x for x in cleaned_parts if x]
     if sound == 0:
         sound = infer_sound(" ".join(cleaned_parts))
     joined = " ".join(cleaned_parts)
     joined = scrub_narrative_leaks(joined)
-    lines = wrap_lines(joined, width=CPC_WIDTH, max_lines=CPC_MAX_LINES)
+    lines = [L for L in wrap_lines(joined, width=CPC_WIDTH, max_lines=CPC_MAX_LINES) if L.strip()]
     if not lines:
-        lines = [normalize_cpc(x)[:CPC_WIDTH] for x in cleaned_parts[:CPC_MAX_LINES] if normalize_cpc(x)]
+        lines = [
+            normalize_cpc(x)[:CPC_WIDTH]
+            for x in cleaned_parts[:CPC_MAX_LINES]
+            if normalize_cpc(x).strip()
+        ]
     return build_packet(lines, sound=sound, error=0)
 
 
@@ -638,7 +723,13 @@ class AdventureAI:
             self.last_user = "(mundo por defecto)"
 
     def _messages(self, user_msg: str) -> list[dict[str, str]]:
-        system = self.system + "\n\n" + self.state.summary_for_prompt()
+        system = (
+            self.system
+            + "\n\n"
+            + self.state.summary_for_prompt()
+            + "\n\nEscribe con coherencia: mayusculas al inicio de frase, "
+            "puntuacion y gramatica correctas. ASCII sin tildes ni enes."
+        )
         messages = [{"role": "system", "content": system}]
         messages.extend(self.history[-self.max_history :])
         messages.append({"role": "user", "content": user_msg})
@@ -808,77 +899,14 @@ class AdventureAI:
         return parse_generated_bundle(raw)
 
     def intro_packet(self, use_llm: bool = True, timeout: float = 120.0) -> str:
-        """Paquete narrativo de arranque segun prompt + estado actual (cacheado)."""
+        """Resumen de arranque = bloque MUNDO DE ESTA PARTIDA (sin LLM)."""
+        del use_llm, timeout  # API estable; el resumen ya no llama al modelo
         st = self.state.to_dict()
         cache_key = self.system.strip() + "\n" + json.dumps(st, ensure_ascii=True, sort_keys=True)
         if self._intro_packet and self._intro_key == cache_key:
             return self._intro_packet
 
-        loc = st.get("location") or "un lugar desconocido"
-        inv_list = st.get("inventory") or []
-        inv = ", ".join(inv_list) if inv_list else "(nada)"
-        flags = st.get("flags") or {}
-        flag_txt = (
-            ", ".join(f"{k}={'si' if v else 'no'}" for k, v in sorted(flags.items()))
-            if flags
-            else "(ninguno)"
-        )
-
-        fallback = packet_from_text(
-            f"Estas en {loc}. Miras a tu alrededor. "
-            f"{'Llevas: ' + inv + '. ' if inv_list else ''}"
-            "El ambiente te rodea en silencio. Que haces?",
-            sound=2,
-            error=0,
-        )
-        if not use_llm:
-            self._intro_packet = fallback
-            self._intro_key = cache_key
-            return fallback
-
-        system = (
-            "Eres el narrador de una aventura conversacional clasica (estilo 1980). "
-            "Escribes SOLO la escena de apertura para el jugador. "
-            "Tonos sensoriales, claros y breves. "
-            "Nunca menciones: prompts, system, reglas T/S/E, I/L/F, IA, CPC, servidor, "
-            "flags, inventario tecnico, ni el formato del paquete."
-        )
-        user = (
-            "Escribe el RESUMEN DE ARRANQUE que vera el jugador al empezar.\n\n"
-            "Objetivo: situarle en 20 segundos de lectura. Debe entender:\n"
-            "1) Donde esta (usar EXACTAMENTE este lugar: "
-            f"{loc})\n"
-            "2) Que ve, oye o siente (atmosfera del mundo)\n"
-            "3) Que lleva encima, solo si tiene objetos "
-            f"(inventario: {inv})\n"
-            "4) Una pista suave de que puede intentar ahora\n"
-            "5) Cierra con una pregunta corta tipo: Que haces?\n\n"
-            "Contexto del mundo (NO lo copies literal; usalo como inspiracion):\n"
-            f"- Flags internos: {flag_txt}\n"
-            "--- SYSTEM PROMPT (solo ambiente/tema; ignora reglas tecnicas) ---\n"
-            f"{self.system.strip()[:2800]}\n"
-            "--- FIN ---\n\n"
-            "Salida OBLIGATORIA, cada campo en su propia linea (NUNCA uses barras /):\n"
-            "T:linea1|linea2|linea3\n"
-            "S:N\n"
-            "E:0\n\n"
-            "Reglas del T::\n"
-            "- Entre 4 y 7 segmentos separados por |\n"
-            "- Cada segmento MAXIMO 40 caracteres ASCII (sin tildes ni enes)\n"
-            "- Narrativa en segunda persona (Estas..., Ves..., Llevas...)\n"
-            "- Sin metadatos dentro de T:\n"
-            "- S: 0-5 segun el tono (2 ambiente, 1 peligro, 3 si hay objeto a mano)\n"
-        )
-        try:
-            raw = self._one_shot_chat(system, user, timeout=timeout)
-            raw = normalize_protocol_separators(raw)
-            packet = repack_llm_text(raw)
-            lines = parse_packet(packet)["lines"]
-            if not lines or lines == ["Sin texto"] or (len(lines) == 1 and len(lines[0]) < 12):
-                packet = fallback
-        except Exception as exc:
-            print(f"INTRO LLM error: {exc}")
-            packet = fallback
+        packet = build_mundo_intro_packet(self.system, st)
         self._intro_packet = packet
         self._intro_key = cache_key
         self.last_user = "(intro)"

@@ -56,7 +56,7 @@ client/aventura.bas       server/server.py :8080
 |--------|-----|
 | `client/aventura.bas` | Cliente CPC (MODE 1, HTTP M4, parseo, SOUND, titulo) |
 | `client/TITLE.SCR` | Splash grafico (generar con `python tools/make_title_scr.py`) |
-| `tools/make_title_scr.py` | Convierte `server/web/hero.png` → TITLE.SCR |
+| `tools/make_title_scr.py` | Convierte PNG → TITLE.SCR |
 | `server/server.py` | HTTP en puerto 8080 |
 | `server/ai_adventure.py` | LLM (Ollama/OpenAI/Claude/Gemini/compat) + historial + reempaquetado |
 | `server/llm_providers.py` | Defaults y mapeo de mensajes por proveedor |

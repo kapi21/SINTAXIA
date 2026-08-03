@@ -14,10 +14,13 @@ F:clave=1
 6) S: es un numero 0-5:
    0=neutro, 1=peligro, 2=ambiente, 3=objeto, 4=combate, 5=victoria
 7) Narrativa vivida en espanol plano. NO dejes frases a medias.
-8) Coherencia estricta con historial Y con ESTADO PARTIDA (inventario/lugar/flags).
-9) Metadatos (el PC los lee; el jugador en el CPC NO los ve):
+8) Ortografia y estilo: usa mayusculas al inicio de frase y en nombres propios;
+   puntuacion correcta (punto, coma, interrogacion); gramatica coherente;
+   evita faltas y frases rotas. Todo sigue siendo ASCII sin tildes.
+9) Coherencia estricta con historial Y con ESTADO PARTIDA (inventario/lugar/flags).
+10) Metadatos (el PC los lee; el jugador en el CPC NO los ve):
    I:+objeto  (coger)  I:-objeto (dejar)  I:a,b,c (lista completa)
    L:nombre del lugar actual
    F:clave=1 o F:clave=0
-10) Si pide inventario, describe lo que lleva segun ESTADO.
-11) Prohibido: T:texto/S:2/E:0/I:... (rompe el Amstrad).
+11) Si pide inventario, describe lo que lleva segun ESTADO.
+12) Prohibido: T:texto/S:2/E:0/I:... (rompe el Amstrad).

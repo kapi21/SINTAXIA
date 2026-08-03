@@ -67,10 +67,11 @@ Sin IA: **Modo = Mock** para probar que la red funciona.
 
 1. PC: `run_server.bat` en marcha.  
 2. CPC: `RUN"aventura`  
-3. Si hay titulo grafico, pulsa **ESPACIO**.  
-4. Debe salir **SERVIDOR ACTIVO** y luego un bloque **Situacion** (resumen de la aventura).  
-5. Escribe, por ejemplo: `miro alrededor`  
-6. Espera (“Pensando…”) y lee la respuesta.
+3. Si hay titulo grafico (con un jingle corto), pulsa **ESPACIO**.  
+4. Lee la pantalla de ayuda y pulsa **ESPACIO** otra vez para comprobar el servidor.  
+5. Debe salir **SERVIDOR ACTIVO** y luego **Situacion** (resumen completo del mundo; si es largo, pulsa **ESPACIO** entre paginas).  
+6. Escribe, por ejemplo: `miro alrededor`  
+7. Espera (“Pensando…” con spinner) y lee la respuesta.
 
 Si sale **SERVIDOR NO ACTIVO**: PC con el programa abierto, misma Wi‑Fi, tecla **R** para reintentar.
 
@@ -153,8 +154,8 @@ Opciones avanzadas (quien monta el sistema):
 ## Resumen en 30 segundos
 
 1. PC: `run_server.bat`.  
-2. CPC: `RUN"aventura` → ESPACIO si hay titulo.  
-3. Lee la **Situacion** y escribe lo que haces.  
+2. CPC: `RUN"aventura` → ESPACIO en titulo → ESPACIO en ayuda.  
+3. Lee la **Situacion** (ESPACIO si pide mas paginas) y escribe lo que haces.  
 4. `SAVE 1` para guardar; `NUEVA` para empezar de cero.  
 5. `QUIT` para salir.
 

@@ -1,6 +1,6 @@
 # SINTAXIA — Handoff de sesión
 
-**Fecha:** 2026-08-02 (noche, late)  
+**Fecha:** 2026-08-03 (cierre noche)  
 **Workspace local:** `C:\@MIS PROYECTOS\M4`  
 **Repo GitHub:** https://github.com/kapi21/SINTAXIA  
 **Branch:** `main`
@@ -10,37 +10,35 @@
 ## Estado
 
 - **Proyecto:** SINTAXIA — aventura conversacional IA para Amstrad CPC + M4 Board
-- **Hecho (sesión reciente):**
-  - Proveedor **OpenRouter** (opción propia en panel/CLI; API OpenAI-compat; default `openrouter/auto`)
-  - Headers de atribución OpenRouter (`HTTP-Referer` + `X-OpenRouter-Title`)
-  - Fix: `content: null` de OpenRouter ya no tumba el hilo HTTP (`extract_openai_text` + catch en `turn`)
-  - **Persistencia** de ajustes en `server/settings.json` (gitignored): provider, model, urls, api_key, temperature, mock, system, start_state
-  - Se escribe al **Guardar** del panel y al **cerrar** el servidor; se carga al arrancar (CLI puede pisar)
-  - Docs: handoff, guía, manual al día
-- **Hecho (antes, sigue vigente):**
-  - Splash `TITLE.SCR` Mode 1; ping EOF; sin paginación; hasta 12 líneas `T:`
-  - Generar prompt = WORLD LLM + `rules_fixed.txt`; `/intro`; `NUEVA`/`REINICIO` + `start_state`
+- **Hecho (sesión 2026-08-03):**
+  - Sin cabecera fija en juego (experimento HEADER descartado; quedan ficheros locales opcionales sin uso)
+  - `/intro` = bloque **MUNDO** completo (premisa sin truncar; `CPC_INTRO_MAX_LINES=60`; paginado ESPACIO ~18 líneas en CPC)
+  - Filtro de líneas vacías (servidor + cliente); reglas de mayúsculas/puntuación/gramática en `rules_fixed.txt`
+  - Wipe M4 `downloaded in…` (filas 24–25); spinner `/-\|` en “Pensando”
+  - Bienvenida reordenada: TITLE → ayuda → ESPACIO → ping → Situación → `>`
+  - Jingle AY corto en TITLE + tono suave en espera de ayuda; silencio al pulsar ESPACIO
+  - Fix Overflow al cargar `.bas`: no usar números de línea >32767 (p. ej. `72485`)
 - **Pendiente:**
   - Pulir I/L/F del Master en partida
-  - TCP Z80 (largo)
+  - (Largo) TCP/net ASM Z80
 - **Verificar:**
-  - Configurar OpenRouter → Guardar → cerrar servidor → reabrir → debe cargar settings
-  - Turno de prueba / CPC con OpenRouter
+  - Copiar `client/aventura.bas` (+ `TITLE.SCR`) a la SD; reiniciar servidor Python
+  - Arranque: jingle TITLE → ayuda → ESPACIO → ping → Situación completa (paginada si hace falta)
 - **Riesgos:**
-  - `settings.json` tiene la API key en claro (solo local; no subir a Git)
-  - No loguear URLs con `api_key=` en claro si se puede evitar; rotar keys si se filtran
-  - Reiniciar servidor tras cambios Python
+  - `server/settings.json` con API key en claro; **no** subir a Git
+  - En CPC, números de línea BASIC ≤32767 de forma segura al editar ASCII
 
 ---
 
 ## Flujo CPC al arrancar
 
-1. Splash `TITLE.SCR` (ESPACIO) o fallback texto  
-2. Intro comandos + ping `/ping`  
-3. Si OK: **Situacion** vía `/intro`  
-4. Prompt `>`  
+1. Splash `TITLE.SCR` + jingle → ESPACIO (corta sonido)  
+2. Pantalla ayuda / comandos / IP `P$` + tono suave → ESPACIO  
+3. Ping `/ping`  
+4. Si OK: **Situacion** vía `/intro` (MUNDO completo; ESPACIO entre páginas)  
+5. Prompt `>`
 
-`NUEVA`/`REINICIO` = `/reset` (`start_state`) + `/intro`.
+`NUEVA` / `REINICIO` = `/reset` (`start_state`) + `/intro`.
 
 ---
 
@@ -54,6 +52,7 @@
 | Cierre servidor | Vuelve a escribir settings (`atexit` / Ctrl+C) |
 | Arranque | Carga settings; flags `--provider`/`--model`/`--api-key`/`--mock` pisan esa sesión |
 | Generar prompt | WORLD+STATE; ensambla con `rules_fixed.txt` |
+| `/intro` | Sin LLM: parsea MUNDO del system prompt |
 
 Esquema T/S/E/I/L/F: `docs/ESQUEMA_PAQUETE.md`
 
@@ -76,7 +75,7 @@ Esquema T/S/E/I/L/F: `docs/ESQUEMA_PAQUETE.md`
 | Ruta | Uso |
 |------|-----|
 | `/ping` | Salud |
-| `/intro` | Resumen narrativo |
+| `/intro` | Resumen MUNDO (completo, sin LLM) |
 | `/turn?msg=` | Turno |
 | `/reset` | Reinicio al `start_state` |
 | `/ui` | Panel |
@@ -96,7 +95,7 @@ E:0|1
 I:+obj / L:lugar / F:clave=1   ← solo PC
 ```
 
-Máx. 12×40; varias filas `T:` si hace falta. Nunca unir con `/`.
+Máx. 12×40 en turnos; `/intro` puede enviar más líneas `T:` (cliente paginado). Nunca unir con `/`.
 
 ---
 
@@ -110,26 +109,32 @@ Máx. 12×40; varias filas `T:` si hace falta. Nunca unir con `/`.
 | `server/settings_store.py` | Lectura/escritura `settings.json` |
 | `server/settings.json` | **Local** (gitignored; API keys) |
 | `server/llm_providers.py` | Defaults + OpenRouter headers |
-| `server/ai_adventure.py` | LLM, intro, generate, scrub |
-| `server/prompts/rules_fixed.txt` | Reglas T/S/E |
+| `server/ai_adventure.py` | LLM, intro MUNDO, generate, scrub |
+| `server/protocol.py` | Empaquetado T/S/E; intro sin ellipsis agresivo |
+| `server/prompts/rules_fixed.txt` | Reglas T/S/E + gramatica |
 | `server/web/ui.html` | Panel |
+| `tests/test_mundo_intro.py` | Tests intro MUNDO |
 | `docs/ESQUEMA_PAQUETE.md` | Esquema paquete |
 | `docs/GUIA_JUGADOR.md` / `MANUAL.md` | Docs usuario |
+
+**Local sin uso en juego (no hace falta en SD):** `HEADER.SCR`, `tools/make_header_scr.py`, previews de header, `imagen/splash2.png`.
 
 ---
 
 ## Decisiones
 
 - MODE 1; HTTP; plantilla fija + mundo LLM  
-- OpenRouter como proveedor de primera clase (no solo Compatible)  
+- OpenRouter como proveedor de primera clase  
 - Settings locales con API key; no subir a GitHub  
+- Sin cabecera gráfica fija en partida (pantalla completa de texto)  
+- Intro = datos del MUNDO, no llamada LLM  
 - No subir `ConvImgCpc.exe`, saves JSON, overscan SCR  
 
 ---
 
 ## Proximos pasos
 
-1. Probar persistencia OpenRouter en hardware real  
+1. Probar jingle + intro paginada en hardware real tras copiar `.bas`  
 2. Seguir puliendo narracion I/L/F  
 3. (Largo) net ASM  
 

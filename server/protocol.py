@@ -35,39 +35,59 @@ def _chunk_t_bodies(safe_lines: list[str]) -> list[str]:
     return chunks or ["..."]
 
 
-def build_packet(lines: list[str], sound: int, error: int = 0) -> str:
-    """Construye el cuerpo text/plain para el Amstrad (una o varias filas T:)."""
+def build_packet(
+    lines: list[str],
+    sound: int,
+    error: int = 0,
+    *,
+    max_lines: int | None = None,
+    ellipsis: bool = True,
+) -> str:
+    """Construye el cuerpo text/plain para el Amstrad (una o varias filas T:).
+
+    max_lines: tope de segmentos (default CPC_MAX_LINES=12).
+    ellipsis: si True y hay recorte, anade '...' al final.
+    """
     sound = max(0, min(5, int(sound)))
     error = 1 if int(error) else 0
+    limit = CPC_MAX_LINES if max_lines is None else max(1, int(max_lines))
     safe_lines: list[str] = []
     truncated = False
 
     for idx, line in enumerate(lines):
-        line = normalize_cpc(str(line))
+        line = normalize_cpc(str(line)).strip()
         if not line:
             continue
-        room = CPC_MAX_LINES - len(safe_lines)
+        room = limit - len(safe_lines)
         if room <= 0:
             truncated = True
             break
         if len(line) > CPC_WIDTH:
-            full = wrap_lines(line, width=CPC_WIDTH, max_lines=99)
+            full = [
+                L for L in wrap_lines(line, width=CPC_WIDTH, max_lines=max(room, 99)) if L.strip()
+            ]
             chunk = full[:room]
             if len(full) > len(chunk):
                 truncated = True
             safe_lines.extend(chunk)
         else:
             safe_lines.append(line[:CPC_WIDTH])
-        if len(safe_lines) >= CPC_MAX_LINES:
-            rest = [normalize_cpc(str(x)) for x in lines[idx + 1 :] if normalize_cpc(str(x))]
+        if len(safe_lines) >= limit:
+            rest = [
+                normalize_cpc(str(x)).strip()
+                for x in lines[idx + 1 :]
+                if normalize_cpc(str(x)).strip()
+            ]
             if rest:
                 truncated = True
             break
 
+    safe_lines = [L for L in safe_lines if L.strip()]
+
     if not safe_lines:
         safe_lines = ["..."]
 
-    if truncated and safe_lines:
+    if truncated and ellipsis and safe_lines:
         last = safe_lines[-1]
         if not last.endswith("..."):
             if len(last) > 37:
@@ -87,8 +107,9 @@ def build_packet(lines: list[str], sound: int, error: int = 0) -> str:
     return f"{out}S:{sound}\r\nE:{error}\r\n"
 
 
-def parse_packet(raw: str) -> Packet:
+def parse_packet(raw: str, max_lines: int | None = None) -> Packet:
     """Parsea un paquete; tolera CRLF, varias filas T: y lineas extra."""
+    limit = CPC_MAX_LINES if max_lines is None else max(1, int(max_lines))
     lines: list[str] = []
     sound = 0
     error = 0
@@ -98,7 +119,11 @@ def parse_packet(raw: str) -> Packet:
             continue
         if part.startswith("T:") or part.startswith("t:"):
             body = part[2:]
-            lines.extend(normalize_cpc(x) for x in body.split("|") if normalize_cpc(x))
+            lines.extend(
+                x
+                for x in (normalize_cpc(seg).strip() for seg in body.split("|"))
+                if x
+            )
         elif part.startswith("S:") or part.startswith("s:"):
             try:
                 sound = max(0, min(5, int(part[2:].strip())))
@@ -112,7 +137,7 @@ def parse_packet(raw: str) -> Packet:
     if not lines:
         lines = ["Sin texto"]
         error = 1
-    return {"lines": lines[:CPC_MAX_LINES], "sound": sound, "error": error}
+    return {"lines": lines[:limit], "sound": sound, "error": error}
 
 
 def packet_from_text(text: str, sound: int = 0, error: int = 0) -> str:

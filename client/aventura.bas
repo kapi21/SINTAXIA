@@ -27,10 +27,11 @@
 160 GOSUB 1000:REM encode -> U$
 170 A$="http://"+P$+"/turn?msg="+U$+">RESP.TXT"
 180 IF LEN(A$)>240 THEN PEN 3:PRINT "Msg muy largo":PEN 1:GOTO 100
-190 GOSUB 1500:REM animacion pensando (M1)
+190 GOSUB 1500:REM animacion pensando
 200 |HTTPGET,@A$
-202 FOR D=1 TO 30:NEXT D:REM pausa flush M4
-203 GOSUB 2500:REM borra "downloaded in Xs" de la M4
+202 FOR D=1 TO 40:NEXT D
+203 GOSUB 2500:REM borra downloaded M4
+204 GOSUB 2500
 205 TN%=TN%+1
 210 GOSUB 2000:REM leer RESP.TXT
 220 GOSUB 9100:REM borde segun S
@@ -52,15 +53,19 @@
 1080 NEXT
 1090 IF LEN(U$)>80 THEN U$=LEFT$(U$,80)
 1100 RETURN
-1500 REM --- animacion pensando (M1) ---
-1510 PEN 2:PRINT "Pensando";
-1520 FOR I=1 TO 3
-1530 SOUND 1,400+I*60,2,2,0,0,1
-1540 PRINT ".";
-1550 FOR D=1 TO 60:NEXT D
-1560 NEXT I
-1570 PRINT:PEN 1
-1580 RETURN
+1500 REM --- animacion pensando (spinner) ---
+1510 PEN 2:PRINT "Pensando ";
+1520 SP$="/-\|"
+1530 SI%=1
+1540 FOR I=1 TO 12
+1550 PRINT MID$(SP$,SI%,1);
+1560 SOUND 1,400+SI%*40,2,2,0,0,1
+1570 FOR D=1 TO 45:NEXT D
+1580 PRINT CHR$(8);
+1590 SI%=SI%+1:IF SI%>4 THEN SI%=1
+1600 NEXT I
+1610 PRINT " ";:PEN 1:PRINT
+1620 RETURN
 2000 REM --- lee paquete RESP.TXT (hasta 12 lineas en LN$) ---
 2010 T$="":NL%=0:S=0:E=1
 2012 FOR I%=1 TO 12:LN$(I%)="":NEXT I%
@@ -99,9 +104,10 @@
 2370 IF K=0 THEN RETURN
 2380 R$=MID$(R$,K+1)
 2390 GOTO 2310
-2500 REM --- borra linea de estado M4 en pantalla ---
-2510 PRINT CHR$(11);SPACE$(39);CHR$(13);
-2520 RETURN
+2500 REM --- borra "downloaded in" de la M4 ---
+2510 LOCATE 1,24:PRINT SPACE$(40);
+2512 LOCATE 1,25:PRINT SPACE$(40);
+2514 PEN 1:RETURN
 2600 REM --- quita sufijo downloaded de T$ ---
 2610 K=INSTR(T$,"download")
 2620 IF K=0 THEN K=INSTR(T$,"Download")
@@ -117,6 +123,8 @@
 2750 J=INSTR(P,T$,"|")
 2760 IF J=0 THEN LLINE$=MID$(T$,P) ELSE LLINE$=MID$(T$,P,J-P)
 2770 IF LLINE$="" THEN 2790
+2772 REM omitir solo espacios
+2774 IF LLINE$=SPACE$(LEN(LLINE$)) THEN 2790
 2780 NL%=NL%+1:LN$(NL%)=LLINE$
 2790 IF J=0 THEN RETURN
 2800 P=J+1
@@ -143,13 +151,44 @@
 3350 NEXT K%
 3360 PRINT
 3370 RETURN
-6900 REM --- titulo grafico TITLE.SCR / ESPACIO ---
+3400 REM --- pausa pagina (intro largo) ---
+3410 PEN 2:PRINT "-- Pulsa ESPACIO --":PEN 1
+3420 K$=INKEY$:IF K$="" THEN 3420
+3430 IF K$<>" " THEN 3420
+3440 RETURN
+3500 REM --- imprime intro completo desde RESP.TXT (sin limite 12) ---
+3510 S=0:E=0:PG%=0
+3515 CLOSEIN
+3520 OPENIN "RESP.TXT"
+3525 IF EOF THEN 3595
+3530 LINE INPUT #9,L$
+3535 IF INSTR(L$,"download")>0 OR INSTR(L$,"Download")>0 THEN 3525
+3540 IF LEFT$(L$,2)="S:" OR LEFT$(L$,2)="s:" THEN S=VAL(MID$(L$,3)):GOTO 3525
+3545 IF LEFT$(L$,2)="E:" OR LEFT$(L$,2)="e:" THEN E=VAL(MID$(L$,3)):GOTO 3525
+3550 IF LEFT$(L$,2)<>"T:" AND LEFT$(L$,2)<>"t:" THEN 3525
+3555 T$=MID$(L$,3):GOSUB 2600
+3560 P=1
+3565 IF P>LEN(T$) THEN 3525
+3570 J=INSTR(P,T$,"|")
+3575 IF J=0 THEN LLINE$=MID$(T$,P) ELSE LLINE$=MID$(T$,P,J-P)
+3580 IF LLINE$="" THEN 3590
+3581 IF LEN(LLINE$)=0 THEN 3590
+3582 GOSUB 3200:GOSUB 3300
+3584 PG%=PG%+1:IF PG%>=18 THEN GOSUB 3400:PG%=0
+3590 IF J=0 THEN 3525
+3592 P=J+1:GOTO 3565
+3595 CLOSEIN:PEN 1:RETURN
+6900 REM --- titulo grafico TITLE.SCR / ESPACIO + jingle ---
 6905 ON ERROR GOTO 6980
 6910 LOAD"TITLE.SCR",&C000
 6915 ON ERROR GOTO 8000
-6920 REM espera solo ESPACIO
-6925 K$=INKEY$:IF K$="" THEN 6925
+6918 GOSUB 9400:REM jingle corto
+6920 W%=0
+6925 K$=INKEY$:IF K$<>"" THEN 6930
+6926 W%=W%+1:IF W%<50 THEN 6925
+6927 W%=0:SOUND 2,480,18,3,2,0,0:GOTO 6925
 6930 IF K$<>" " THEN 6925
+6932 SOUND 1,0,0,0:SOUND 2,0,0,0:SOUND 3,0,0,0
 6935 CLS
 6940 RETURN
 6980 REM sin TITLE.SCR: texto minimo
@@ -160,7 +199,8 @@
 6994 PEN 3:PRINT "SINTAXIA":PEN 1
 6995 PRINT "(Sin TITLE.SCR Err ";ECODE;")"
 6996 PRINT:PRINT "Pulsa ESPACIO"
-6998 GOTO 6925
+6997 GOSUB 9400
+6998 GOTO 6920
 7000 REM --- paleta monitor retro MODE 1 + CRT Flash (M5) ---
 7010 MODE 1
 7020 BORDER 0
@@ -171,51 +211,62 @@
 7070 PAPER 0:PEN 1:CLS
 7080 FOR F%=0 TO 3:BORDER F%*4:FOR D%=1 TO 30:NEXT D%:NEXT F%:BORDER 0
 7090 RETURN
-7100 REM --- pantalla de introduccion ---
+7100 REM --- pantalla de introduccion (lineas <=40 cols) ---
 7110 CLS
 7120 PEN 2:PRINT "======= SINTAXIA =======":PEN 1
 7130 PRINT "Aventura conversacional con IA"
-7140 PRINT "Amstrad CPC + M4 Board"
+7140 PRINT "Amstrad CPC + placa M4 WiFi"
 7150 PRINT
 7160 PRINT "Escribe en espanol lo que haces."
-7170 PRINT "Un maestro (IA en el PC) narra"
-7180 PRINT "la historia y manda efectos AY."
+7170 PRINT "La IA en el PC narra la historia."
+7180 PRINT "El chip AY pone los efectos."
 7190 PRINT
 7200 PEN 2:PRINT "Comandos:":PEN 1
-7210 PRINT " AYUDA  - esta ayuda"
-7220 PRINT " NUEVA / REINICIO - empezar de 0"
+7210 PRINT " AYUDA  - ver esta lista"
+7220 PRINT " NUEVA  - reiniciar partida"
 7225 PRINT " INV    - ver inventario"
 7226 PRINT " SAVE n / LOAD n / SAVES"
-7227 PRINT " !      - repetir ultimo comando"
-7228 PRINT " D      - diagnostico / debug"
-7230 PRINT " QUIT   - guardar y salir (reset)"
+7227 PRINT " !      - repetir comando"
+7228 PRINT " D      - diagnostico"
+7230 PRINT " QUIT   - guardar y salir"
+7235 PRINT
+7236 PRINT "Servidor: ";P$
 7240 PRINT
-7250 PEN 2:PRINT "Comprobando servidor...":PEN 1
-7260 GOSUB 7500
+7242 PEN 2:PRINT "Pulsa ESPACIO para comprobar"
+7244 PRINT "el servidor del PC e iniciar"
+7246 PRINT "la partida.":PEN 1
+7247 W%=0
+7248 K$=INKEY$:IF K$<>"" THEN 7253
+7249 W%=W%+1:IF W%<60 THEN 7248
+7250 W%=0:SOUND 3,600,12,2,0,0,0:GOTO 7248
+7253 IF K$<>" " THEN 7248
+7254 SOUND 1,0,0,0:SOUND 2,0,0,0:SOUND 3,0,0,0
+7255 PRINT
+7256 PEN 2:PRINT "Comprobando servidor...":PEN 1
+7258 GOSUB 7500
 7270 PRINT
 7280 IF OK=1 THEN 7400
 7290 PEN 3:PRINT "*** SERVIDOR NO ACTIVO ***":PEN 1
 7300 PRINT "En el PC, misma WiFi:"
-7310 PRINT "  run_server.bat"
-7320 PRINT "IP esperada: ";P$
+7310 PRINT " run_server.bat"
+7320 PRINT "IP: ";P$
 7330 PRINT
 7340 PRINT "Pulsa R para reintentar"
-7350 PRINT "o ESPACIO para seguir igual."
+7350 PRINT "o ESPACIO para seguir."
 7360 K$=INKEY$:IF K$="" THEN 7360
-7370 IF K$="r" OR K$="R" THEN 7250
+7370 IF K$="r" OR K$="R" THEN 7255
 7380 PEN 3:PRINT "Sigues SIN servidor.":PEN 1
 7390 GOTO 7450
 7400 PEN 2:PRINT "*** SERVIDOR ACTIVO ***":PEN 1
 7410 PRINT
-7412 PEN 2:PRINT "Preparando tu historia...":PEN 1
-7415 PEN 2:PRINT "-- Situacion --":PEN 1
-7420 GOSUB 7650:REM contexto narrativo /intro
+7412 PEN 2:PRINT "-- Situacion --":PEN 1
+7420 GOSUB 7650:REM /intro MUNDO completo
 7425 GOSUB 9100
-7430 GOSUB 3000
-7435 GOSUB 9000
+7430 GOSUB 9000
 7450 PRINT
 7460 PEN 2:PRINT "-- La aventura comienza --":PEN 1
-7470 PRINT "Escribe tu accion (ej. miro alrededor)"
+7470 PRINT "Escribe tu accion."
+7472 PRINT "Ejemplo: miro alrededor"
 7475 PRINT
 7480 RETURN
 7500 REM --- ping HTTP /ping ---
@@ -223,8 +274,9 @@
 7515 CLOSEIN
 7520 A$="http://"+P$+"/ping>PING.TXT"
 7530 |HTTPGET,@A$
-7535 FOR D=1 TO 120:NEXT D:REM pausa flush M4
-7537 GOSUB 2500:REM borra "downloaded in Xs" de la M4
+7535 FOR D=1 TO 120:NEXT D
+7537 GOSUB 2500
+7538 GOSUB 2500
 7540 OPENIN "PING.TXT"
 7550 IF EOF THEN 7610
 7560 LINE INPUT #9,L$
@@ -236,12 +288,13 @@
 7610 CLOSEIN
 7620 IF OK=1 THEN E=0
 7630 RETURN
-7650 REM --- contexto narrativo GET /intro ---
+7650 REM --- GET /intro y mostrar TODO el MUNDO (paginado) ---
 7655 A$="http://"+P$+"/intro>RESP.TXT"
 7660 |HTTPGET,@A$
 7665 FOR D=1 TO 100:NEXT D
 7670 GOSUB 2500
-7675 GOSUB 2000
+7672 GOSUB 2500
+7675 GOSUB 3500
 7680 RETURN
 7700 REM --- ayuda in-game ---
 7710 PRINT
@@ -261,17 +314,15 @@
 7820 A$="http://"+P$+"/reset>RESP.TXT"
 7830 |HTTPGET,@A$
 7835 FOR D=1 TO 50:NEXT D
-7840 GOSUB 2500:REM borra "downloaded in Xs" de la M4
+7840 GOSUB 2500
 7845 GOSUB 2000
 7850 GOSUB 9100
 7855 GOSUB 3000
 7860 GOSUB 9000
 7865 PRINT
-7870 PEN 2:PRINT "Preparando tu historia...":PEN 1
-7875 PEN 2:PRINT "-- Situacion --":PEN 1
-7880 GOSUB 7650:REM /intro del prompt/mundo actual en el PC
+7870 PEN 2:PRINT "-- Situacion --":PEN 1
+7880 GOSUB 7650
 7885 GOSUB 9100
-7890 GOSUB 3000
 7892 GOSUB 9000
 7894 TN%=0:PREV$=""
 7896 PRINT
@@ -333,3 +384,9 @@
 9290 ENV 5,1,12,1,4,1,1,10,-1,2
 9300 ENT 5,5,-8,1,5,-8,1,5,-8,1
 9310 RETURN
+9400 REM --- jingle TITLE (corto, ~1s) ---
+9410 SOUND 1,239,12,11,0,0,0
+9420 SOUND 1,190,12,11,0,0,0
+9430 SOUND 1,159,16,12,0,0,0
+9440 SOUND 1,119,22,10,1,0,0
+9450 RETURN
