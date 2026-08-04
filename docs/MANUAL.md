@@ -331,7 +331,7 @@ No confundir con las **partidas** (`server/saves/slotN.json`): eso es inventario
 Al hacer `RUN"aventura`:
 
 1. Paleta MODE 1 + destello CRT.
-2. (Opcional) Splash grafico `TITLE.SCR` con **jingle AY** corto → pulsa **ESPACIO** (corta el sonido).
+2. (Opcional) Splash grafico `TITLE.SCR` con **tema AY de intro** (~3 s, tono misterioso) y pedal suave en espera → pulsa **ESPACIO** (corta el sonido).
 3. Pantalla de ayuda (comandos + IP `P$`) con tono suave en espera → **ESPACIO**.
 4. **Comprobando servidor…** (`/ping`).
 5. Si OK: **SERVIDOR ACTIVO** → **Situacion** (`/intro`: bloque MUNDO completo del prompt; sin LLM; si hay muchas lineas, **ESPACIO** entre paginas).
@@ -343,32 +343,34 @@ Nota CPC: al editar `aventura.bas` en ASCII, evita numeros de linea **>32767** (
 
 ```text
 > miro alrededor
-Esperando al maestro...
-(texto narrado en varias lineas)
+Pensando /-\|
+(texto narrado letra a letra; una tecla lo acelera)
 (efecto de sonido + color de borde)
 >
 ```
+
+La entrada usa un **editor por teclado** (no el `INPUT` clasico): puedes borrar con DEL/backspace. Softkeys: **f1** = `INV`, **f2** = `AYUDA`. **Flecha arriba** o `!` repiten el ultimo comando.
 
 Escribes lo que haces **en espanol natural**. No hace falta sintaxis de parser clasico, aunque frases claras ayudan a la IA.
 
 Limites practicos:
 
-- Mensaje de jugador ~80 caracteres (URL BASIC).
+- Mensaje de jugador ~80 caracteres (URL BASIC); editor limita a ~60 en pantalla.
 - Respuesta: hasta **12 lineas** de **40** caracteres (varias filas `T:` si hace falta; solo si hay mas de 12 el PC corta con `...`).
 
 ### 8.3 Atmosfera y presentacion visual (Edicion Comercial AAA)
 
-- **Efecto Typewriter (maquina de escribir)**: El texto narrativo aparece caracter a caracter acompanado de un sutil sonido de pulsacion en el chip AY-3-8912.
+- **Efecto Typewriter (maquina de escribir)**: El texto narrativo aparece caracter a caracter acompanado de un sutil sonido de pulsacion en el chip AY-3-8912. **Cualquier tecla** acelera el resto del paquete (tambien en la Situacion, reiniciado tras cada pagina).
 - **Tinta dinamica segun tono (`S:`)**:
   - `S=0` (neutro) / `S=2` (ambiente): Tinta ambar (`PEN 1`).
   - `S=1` (peligro) / `S=4` (combate): Tinta roja alerta (`PEN 3`).
   - `S=3` (objeto) / `S=5` (victoria): Tinta verde brillante (`PEN 2`).
 - **Borde dinamico**: Cambia de color segun `S:` (peligro, cueva, tesoro, combate, victoria).
 - **Animacion Pensando...**: Spinner `/-\|` y tono corto antes del HTTP.
-- **Jingle de titulo** y ambiente en la pantalla de ayuda (solo en esas esperas).
+- **Tema de titulo** (La menor, ~3 s) + pedal atmosferico; tono suave en la pantalla de ayuda.
 - **Efecto CRT Flash**: Destello inicial al arrancar.
-- **SOUND** con envolventes `ENV`/`ENT` (peligro, eco, arpegio, golpe, fanfarria).
-- El texto de cada **turno** se imprime **completo** (sin pausa). La **Situacion** (`/intro`) si puede pedir ESPACIO entre paginas.
+- **SOUND** con envolventes `ENV`/`ENT` (peligro sombrio, eco, arpegio objeto, golpe, fanfarria; pitido de rechazo si `E:1`).
+- El texto de cada **turno** se imprime **completo** (sin pausa de pagina). La **Situacion** (`/intro`) si puede pedir ESPACIO entre paginas.
 
 ---
 
@@ -380,15 +382,17 @@ Todo se escribe en el prompt `>` (mayusculas/minusculas toleradas en la mayoria)
 
 | Comando | Accion |
 |---------|--------|
-| `AYUDA` | Muestra ayuda e IP del servidor (`P$`). |
+| `AYUDA` / **f2** | Muestra ayuda e IP del servidor (`P$`). |
 | `NUEVA` / `REINICIO` | `/reset` al **start_state** del servidor + vuelve a mostrar `/intro` (situacion). |
-| `INV` / `inventario` / `objetos` | Lista lo que llevas (sin llamar a la IA). |
+| `INV` / `inventario` / `objetos` / **f1** | Lista lo que llevas (sin llamar a la IA). |
 | `SAVE 1` … `SAVE 3` | Guarda partida en ese slot (tambien `GUARDAR 1`). |
 | `LOAD 1` … `LOAD 3` | Carga ese slot (tambien `CARGAR 1`). |
 | `SAVES` / `PARTIDAS` | Lista slots ocupados/vacios. |
-| `!` | Repite el ultimo comando introducido. |
+| `!` / **flecha arriba** | Repite el ultimo comando introducido. |
 | `D` / `DEBUG` | Pantalla de diagnostico (IP host, ultima URL, turnos, estado red). |
 | `QUIT` | Auto-guarda slot 1 y reinicia el CPC (`CALL 0`). |
+
+Las softkeys **f1**/**f2** se definen al arrancar (`KEY 1` / `KEY 2`) e inyectan el comando con Enter.
 
 Cualquier otra frase se interpreta como **accion de aventura** y se envia a `/turn`.
 
@@ -425,11 +429,13 @@ Metadatos que la IA puede enviar (`I:+llave`, `L:cripta`, `F:puerta=1`) **los pr
 | S | Significado | Efecto tipico |
 |---|-------------|----------------|
 | 0 | Neutro | Silencio |
-| 1 | Peligro | Tono grave + envolvente |
+| 1 | Peligro | Acorde grave 2 canales (sombrío) |
 | 2 | Ambiente / cueva | Eco suave (2 canales) |
-| 3 | Objeto | Arpegio |
+| 3 | Objeto | Arpegio agudo corto |
 | 4 | Combate | Golpe + ruido |
-| 5 | Victoria / logro | Fanfarria |
+| 5 | Victoria / logro | Fanfarria ascendente + armonia |
+
+Si el paquete trae **`E:1`**, el cliente ignora `S:` y reproduce un **pitido de rechazo** (tambien en fallos de red/archivo).
 
 ### 10.2 Paquete hacia el CPC
 

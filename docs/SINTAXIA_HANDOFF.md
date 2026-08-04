@@ -1,6 +1,6 @@
 # SINTAXIA — Handoff de sesión
 
-**Fecha:** 2026-08-03 (cierre noche)  
+**Fecha:** 2026-08-04  
 **Workspace local:** `C:\@MIS PROYECTOS\M4`  
 **Repo GitHub:** https://github.com/kapi21/SINTAXIA  
 **Branch:** `main`
@@ -18,9 +18,14 @@
   - Bienvenida reordenada: TITLE → ayuda → ESPACIO → ping → Situación → `>`
   - Jingle AY corto en TITLE + tono suave en espera de ayuda; silencio al pulsar ESPACIO
   - Fix Overflow al cargar `.bas`: no usar números de línea >32767 (p. ej. `72485`)
+  - I/L/F del Master: infraestructura lista (`game_state`, reglas, apply en `turn`, STATE al generar mundo); coherencia OK a efectos prácticos
+  - Editor `INKEY$` (backspace, flecha ARR / `!` repetir, `KEY` f1=INV f2=AYUDA) + skip typewriter con una tecla
+  - Leitmotifs AY: `S:1` acorde sombrío, `S:3` arpegio objeto, `S:5` fanfarria; pitido rechazo en `E:1` / error handler
+  - Tema intro TITLE (~3s, La menor) + pedal atmosférico hasta ESPACIO
 - **Pendiente:**
-  - Pulir I/L/F del Master en partida
+  - Probar en hardware: jingle/intro + editor INKEY$/skip typewriter (copiar `.bas` + `TITLE.SCR`)
   - (Largo) TCP/net ASM Z80
+  - Local: `client/aventura2.bas` sigue siendo experimento Gemini (no oficial)
 - **Verificar:**
   - Copiar `client/aventura.bas` (+ `TITLE.SCR`) a la SD; reiniciar servidor Python
   - Arranque: jingle TITLE → ayuda → ESPACIO → ping → Situación completa (paginada si hace falta)
@@ -135,7 +140,7 @@ Máx. 12×40 en turnos; `/intro` puede enviar más líneas `T:` (cliente paginad
 ## Proximos pasos
 
 1. Probar jingle + intro paginada en hardware real tras copiar `.bas`  
-2. Seguir puliendo narracion I/L/F  
+2. (Opcional) Portar ideas buenas de `aventura2.bas` al cliente oficial tras revisión  
 3. (Largo) net ASM  
 
 ---

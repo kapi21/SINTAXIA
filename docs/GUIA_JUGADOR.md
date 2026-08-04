@@ -14,7 +14,7 @@ Escribes lo que quieres hacer, como si hablaras con alguien:
 > abro la puerta  
 > cojo la antorcha  
 
-El maestro te responde con narracion **letra a letra** (maquina de escribir) y sonidos del chip del Amstrad.
+El maestro te responde con narracion **letra a letra** (maquina de escribir) y sonidos del chip del Amstrad. Si quieres leer mas rapido, pulsa **cualquier tecla** y el texto se vuelca de golpe.
 
 Ademas:
 
@@ -22,6 +22,7 @@ Ademas:
 - **El borde cambia** segun la situacion.
 - Al empezar (y con `NUEVA`) lees un **resumen de situacion**: donde estas y que ocurre, sin tecnicismos.
 - Puedes **guardar** la partida y retomarla otro dia.
+- Atajos: **f1** inventario, **f2** ayuda, **flecha arriba** (o `!`) repetir lo ultimo.
 
 ---
 
@@ -67,11 +68,11 @@ Sin IA: **Modo = Mock** para probar que la red funciona.
 
 1. PC: `run_server.bat` en marcha.  
 2. CPC: `RUN"aventura`  
-3. Si hay titulo grafico (con un jingle corto), pulsa **ESPACIO**.  
+3. Si hay titulo grafico, suena un **tema de intro** corto; pulsa **ESPACIO** (corta la musica).  
 4. Lee la pantalla de ayuda y pulsa **ESPACIO** otra vez para comprobar el servidor.  
 5. Debe salir **SERVIDOR ACTIVO** y luego **Situacion** (resumen completo del mundo; si es largo, pulsa **ESPACIO** entre paginas).  
-6. Escribe, por ejemplo: `miro alrededor`  
-7. Espera (“Pensando…” con spinner) y lee la respuesta.
+6. Escribe, por ejemplo: `miro alrededor` (puedes borrar con DEL; **f1**=inventario, **f2**=ayuda).  
+7. Espera (“Pensando…” con spinner) y lee la respuesta. Una tecla salta el efecto maquina de escribir.
 
 Si sale **SERVIDOR NO ACTIVO**: PC con el programa abierto, misma Wi‑Fi, tecla **R** para reintentar.
 
@@ -87,15 +88,17 @@ Si sale **SERVIDOR NO ACTIVO**: PC con el programa abierto, misma Wi‑Fi, tecla
 
 | Escribes | Que pasa |
 |----------|----------|
-| `AYUDA` | Recuerda comandos. |
-| `INV` | Mira lo que llevas. |
-| `!` | Repite el ultimo comando. |
+| `AYUDA` o **f2** | Recuerda comandos. |
+| `INV` o **f1** | Mira lo que llevas. |
+| `!` o **flecha arriba** | Repite el ultimo comando. |
 | `D` | Diagnostico (conexion / estado). |
 | `NUEVA` o `REINICIO` | Empieza de cero con el mundo que hay ahora en el PC (y vuelve a contar la situacion). |
 | `SAVE 1` | Guarda en ranura 1 (tambien 2 o 3). |
 | `LOAD 1` | Carga esa ranura. |
 | `SAVES` | Lista ranuras. |
 | `QUIT` | Guarda en slot 1 y reinicia el CPC. |
+
+Durante la narracion, **cualquier tecla** acelera el texto (deja de sonar el tecleo letra a letra).
 
 Ejemplos de acciones:
 
