@@ -1,0 +1,32 @@
+{
+  "name": "SINTAXIA — Panel CPC",
+  "short_name": "SINTAXIA",
+  "description": "Panel de control SINTAXIA para Amstrad CPC + M4",
+  "start_url": "/ui",
+  "scope": "/",
+  "display": "standalone",
+  "orientation": "any",
+  "background_color": "#000000",
+  "theme_color": "#0000d4",
+  "lang": "es",
+  "icons": [
+    {
+      "src": "/assets/icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/assets/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/assets/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "maskable"
+    }
+  ]
+}

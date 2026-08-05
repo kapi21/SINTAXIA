@@ -139,15 +139,8 @@ def handle_save_load_command(
     if m:
         slot = int(m.group(2))
         try:
-            load_slot(ai, slot)
-            inv = ", ".join(ai.state.inventory) if ai.state.inventory else "(vacio)"
-            packet = packet_from_text(
-                f"Cargado slot {slot}. {ai.state.location}. Llevas: {inv}.",
-                sound=0,
-                error=0,
-                width=w,
-            )
-            ai.last_packet = packet
+            load_slot(ai, slot, width=w)
+            packet = ai.last_packet
         except FileNotFoundError:
             packet = packet_from_text(f"Slot {slot} vacio.", sound=0, error=1, width=w)
             ai.last_packet = packet
@@ -256,6 +249,8 @@ class AdventureHandler(BaseHTTPRequestHandler):
                 ctype = "text/css; charset=utf-8"
             elif name.endswith(".js"):
                 ctype = "application/javascript; charset=utf-8"
+            elif name.endswith(".webmanifest") or name.endswith(".json"):
+                ctype = "application/manifest+json; charset=utf-8"
             self._send(asset.read_bytes(), ctype)
             return
 

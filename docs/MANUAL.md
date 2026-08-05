@@ -91,7 +91,7 @@ Todo ocurre en la **misma Wi‑Fi** (LAN). No hace falta Internet si usas Ollama
 |----------|---------|
 | Maquina | CPC 464 / 664 / 6128 / Plus |
 | Expansion | **M4 Board** con Wi‑Fi configurada |
-| microSD | FAT32, con `aventura.bas` y/o `aventuramode2.bas` |
+| microSD | FAT32, con `sintaxia.bas` + `aventura.bas` y/o `aventuramode2.bas` |
 | Firmware M4 | Preferible reciente (comandos `|HTTPGET`, `|NETSTAT`) |
 
 ### Red de ejemplo (PoC)
@@ -123,6 +123,7 @@ Estructura relevante:
 ```text
 SINTAXIA/
   run_server.bat
+  client/sintaxia.bas
   client/aventura.bas
   client/aventuramode2.bas
   client/TITLE.SCR
@@ -197,14 +198,15 @@ Documentacion hardware: [M4Duke/m4hardware](https://github.com/M4Duke/m4hardware
 ### 5.2 Copiar el cliente BASIC
 
 1. En el PC, copia a la microSD de la M4:
+   - `client/sintaxia.bas` — **launcher** (entrada recomendada: elige MODE 1 o 2)
    - `client/aventura.bas` — cliente **MODE 1** (40 columnas; oficial)
    - `client/aventuramode2.bas` — cliente **MODE 2** (80 columnas; negro/verde)
    - `client/TITLE.SCR` (opcional; solo con MODE 1)
-2. En ambos `.bas` revisa `P$` (IP del PC). El de MODE 2 pide `?cols=80` al servidor.
-3. Si `RUN"aventura` **no** carga (ASCII sin cabecera AMSDOS):
-   - Abre un emulador (WinAPE, CPCemu…), pega el listado, `SAVE"aventura`
+2. En ambos clientes revisa `P$` (IP del PC). El de MODE 2 pide `?cols=80` al servidor.
+3. Si `RUN"sintaxia` / `RUN"aventura` **no** carga (ASCII sin cabecera AMSDOS):
+   - Abre un emulador (WinAPE, CPCemu…), pega el listado, `SAVE"sintaxia` (o `aventura`)
    - Copia el `.bas` tokenizado a la SD
-   - Alternativa: teclear en el CPC y `SAVE"aventura`
+   - Alternativa: teclear en el CPC y `SAVE"…`
    - Alternativa: subir por la web UI de la M4
    - Igual para `aventuramode2` (el fichero **debe** ir en CRLF)
 
@@ -227,7 +229,8 @@ Orden recomendado:
 1. **PC:** Wi‑Fi/LAN OK, Ollama OK (si usas IA).
 2. **PC:** `run_server.bat` (o `cd server` + `python server.py`).
 3. **PC (opcional):** abre http://127.0.0.1:8080/ui y revisa el modo/modelo.
-4. **CPC:** `|NETSTAT` → `RUN"aventura` o `RUN"aventuramode2`
+4. **CPC:** `|NETSTAT` → `RUN"sintaxia` → **1** o **2**  
+   (o `RUN"aventura` / `RUN"aventuramode2` en directo)
 5. En la intro del CPC debe salir **SERVIDOR ACTIVO**. Si no, pulsa `R` para reintentar o revisa IP/firewall.
 
 ### Variantes de arranque del servidor
@@ -262,6 +265,8 @@ URL local: **http://127.0.0.1:8080/** (redirige a `/ui`)
 URL en LAN: **http://IP-DEL-PC:8080/ui** (ej. `http://192.168.1.4:8080/ui`)
 
 El panel imita un monitor CPC (borde azul, tipografia pixel, arte hero).
+
+**Movil (misma Wi‑Fi):** abre la URL LAN en Chrome/Safari → menu → **Anadir a pantalla de inicio** / **Instalar app**. Usa el icono de `imagen/icon.png` (manifest en `/assets/manifest.webmanifest`). Sin HTTPS no hay PWA “completa”, pero queda como acceso a pantalla completa.
 
 ### 7.1 Panel izquierdo — Motor
 
@@ -298,8 +303,8 @@ El panel imita un monitor CPC (borde azul, tipografia pixel, arte hero).
 | **Partidas (slots 1-3)** | Resumen de partidas guardadas en el PC (`server/saves/`). |
 | **nombre opcional** | Etiqueta al guardar (ej. `castillo`). |
 | **Slot 1/2/3** | Elige que hueco usar. |
-| **Guardar** (slot) | Guarda estado + historial corto en ese slot. |
-| **Cargar** | Restaura ese slot en el servidor (afecta al siguiente turno del CPC). |
+| **Guardar** (slot) | Guarda mundo (`system`/`start_state`) + estado + historial corto. |
+| **Cargar** | Restaura ese slot **en memoria** (no escribe `settings.json`). |
 | **Listar** | Refresca la lista de slots. |
 | **Jugador** | Ultimo mensaje recibido. |
 | **Respuesta T:/S:/E:** | Ultimo paquete enviado (o generado) hacia el CPC. |
@@ -316,7 +321,7 @@ Al pulsar **Guardar** (y al cerrar el servidor) se escribe `server/settings.json
 
 Al arrancar de nuevo, el servidor carga ese fichero. Veras en consola `SETTINGS cargados…` y el proveedor/modelo recordados.
 
-No confundir con las **partidas** (`server/saves/slotN.json`): eso es inventario/historial de juego.
+No confundir con las **partidas** (`server/saves/slotN.json`): ahi va el **mundo de esa partida** + inventario/historial. El LOAD de un slot pone ese mundo en RAM; **Guardar** del panel es lo que persiste el default en `settings.json`.
 
 ### 7.4 Flujo tipico en la IU
 
@@ -334,10 +339,12 @@ No confundir con las **partidas** (`server/saves/slotN.json`): eso es inventario
 
 ### 8.1 Pantalla de introduccion
 
-Al hacer `RUN"aventura` (MODE 1):
+Al hacer `RUN"sintaxia` aparece el menu de modo; con **1** arranca MODE 1 (`aventura.bas`):
+
+(Con `RUN"aventura` directo es el mismo flujo MODE 1.)
 
 1. Paleta MODE 1 (borde negro).
-2. (Opcional) Splash grafico `TITLE.SCR` con **tema AY de intro** (~3 s) → **ESPACIO**.
+2. (Opcional) Splash grafico `TITLE.SCR` con **tema AY de intro** (~2 min, bucle hasta ESPACIO).
 3. Pantalla de ayuda (comandos + IP `P$`) → **ESPACIO**.
 4. **Comprobando servidor…** (`/ping`).
 5. Si OK: **SERVIDOR ACTIVO** → **Situacion** (`/intro`).
@@ -357,7 +364,7 @@ Pensando /-\|
 >
 ```
 
-La entrada usa un **editor por teclado** (no el `INPUT` clasico): puedes borrar con DEL/backspace. Softkeys: **f1**=`INV`, **f2**=`AYUDA`, **f3**=`SAVE 1`, **f4**=`LOAD 1`, **f5**=`NUEVA`, **f6**=`AUDIO`. **Flechas arriba/abajo** recorren un historial de hasta **5** comandos; `!` repite el mas reciente. **NUEVA**/**REINICIO** y **QUIT** piden confirmacion **S/N**. `MUTE`/`SILENCIO` / `SONIDO` / `AUDIO` controlan el AY (`MU%`).
+La entrada usa un **editor por teclado** (no el `INPUT` clasico): puedes borrar con DEL/backspace. Softkeys: **F1**=`INV`, **F2**=`AYUDA`, **F3**=`SAVE 1`, **F4**=`LOAD 1`, **F5**=`NUEVA`, **F6**=`SONIDO` (ON/OFF), **F7**=`IP`, **F8**=`QUIT`. **Flechas** = historial (5). `MUTE` silencia. IP del PC: linea `P$` en el `.bas`, o fichero **`HOST.TXT`** en la SD (una linea `IP:puerto`); **F7** edita y guarda ese fichero.
 
 Escribes lo que haces **en espanol natural**. No hace falta sintaxis de parser clasico, aunque frases claras ayudan a la IA.
 
@@ -371,10 +378,10 @@ Limites practicos:
 - **Typewriter**: texto caracter a caracter + clic AY; **cualquier tecla** acelera.
 - **Cursor de prompt**: bloque `CHR$(143)` parpadeante.
 - **Borde**: siempre **negro** (sin microflash de color).
-- **Clientes**: `aventura.bas` MODE 1 (40 cols + `TITLE.SCR`); `aventuramode2.bas` MODE 2 (80 cols, negro/verde).
+- **Clientes**: launcher `sintaxia.bas`; `aventura.bas` MODE 1 (40 cols + `TITLE.SCR`); `aventuramode2.bas` MODE 2 (80 cols, negro/verde).
 - **Ancho dinamico**: el servidor acepta `?cols=40|80` y hace **reflow** denso (sin segmentos vacios).
 - **Animacion Pensando...**: spinner `/-\|` antes del HTTP.
-- **Tema de titulo** + pedal (MODE 1 / splash MODE 2).
+- **Tema de titulo** (~2 min, ambiente La menor, bucle hasta ESPACIO) + pedal en ayuda.
 - **SOUND** con envolventes `ENV`/`ENT` segun `S:` / `E:1`.
 - **NUEVA/f5**: `/reset` en silencio y luego intro (sin mensaje Lugar/Llevas intermedio).
 - Viñetas `PLOT`/`DRAW`: **desactivadas**.
@@ -389,20 +396,20 @@ Todo se escribe en el prompt `>` (mayusculas/minusculas toleradas en la mayoria)
 
 | Comando | Accion |
 |---------|--------|
-| `AYUDA` / **f2** | Muestra ayuda e IP del servidor (`P$`). |
-| `NUEVA` / `REINICIO` / **f5** | Pide **S/N**; si S: `/reset` + `/intro`. |
-| `INV` / `inventario` / `objetos` / **f1** | Lista lo que llevas (sin llamar a la IA). |
-| `SAVE 1` … `SAVE 3` / **f3**=`SAVE 1` | Guarda partida en ese slot. |
-| `LOAD 1` … `LOAD 3` / **f4**=`LOAD 1` | Carga ese slot. |
+| `AYUDA` / **F2** | Muestra ayuda e IP del servidor (`P$`). |
+| `NUEVA` / `REINICIO` / **F5** | Pide **S/N**; si S: `/reset` + `/intro`. |
+| `INV` / `inventario` / `objetos` / **F1** | Lista lo que llevas (sin llamar a la IA). |
+| `SAVE 1` … `SAVE 3` / **F3**=`SAVE 1` | Guarda partida en ese slot. |
+| `LOAD 1` … `LOAD 3` / **F4**=`LOAD 1` | Carga ese slot. |
 | `SAVES` / `PARTIDAS` | Lista slots ocupados/vacios. |
 | `!` / **flechas ARR/ABJ** | Historial de hasta 5 comandos (`!` = el mas reciente). |
 | `D` / `DEBUG` | Pantalla de diagnostico (IP host, ultima URL, turnos, historial, estado red). |
-| `QUIT` | Pide **S/N**; si S: auto-guarda slot 1 y reinicia el CPC (`CALL 0`). |
-| `MUTE` / `SILENCIO` | Apaga efectos AY (spinner, typewriter, leitmotifs, tema). |
-| `SONIDO` | Enciende efectos AY. |
-| `AUDIO` / **f6** | Alterna sonido on/off. |
+| `QUIT` / **F8** | Pide **S/N** («Salir sin guardar?»); si S: vuelve a la bienvenida (no guarda, no reinicia el CPC). |
+| `MUTE` / `SILENCIO` | Apaga efectos AY. |
+| `SONIDO` / `AUDIO` / **F6** | Alterna sonido ON/OFF. |
+| `IP` / `HOST` / **F7** | Edita `P$` y escribe `HOST.TXT` en la SD. |
 
-Softkeys **f1**–**f6** se definen al arrancar (`KEY`) e inyectan el comando con Enter.
+Softkeys **F1**–**F8** se definen al arrancar (`KEY`). Al arrancar se lee `HOST.TXT` si existe.
 
 Cualquier otra frase se interpreta como **accion de aventura** y se envia a `/turn`.
 
@@ -478,8 +485,13 @@ Visibles en el panel; consultables en CPC con `INV` (inventario).
 ## 11. Guardar y cargar partidas
 
 - **Donde se guardan:** ficheros JSON en `server/saves/slot1.json` … `slot3.json` (en el PC).
-- **Que se guarda:** lugar, inventario, flags + historial corto del chat (no la API key).
-- **Desde CPC:** `SAVE 2`, `LOAD 2`, `SAVES`.
+- **Que se guarda:**
+  - **Mundo:** prompt `system` + `start_state` (la aventura generada / en juego)
+  - **Situacion:** lugar, inventario, flags
+  - **Conversacion:** historial corto del chat (no la API key)
+- **LOAD:** restaura todo eso **en memoria** y envia al CPC un **resumen de reanudacion**: mundo (titulo/premisa), situacion (lugar, inventario, hechos), y un recuerdo de la ultima accion / narracion. **No** reescribe `settings.json`.
+- **Slots antiguos** (sin `system`): cargan estado + historial; el prompt en memoria no cambia; el CPC avisa `Mundo no embebido`.
+- **Desde CPC:** `SAVE 2`, `LOAD 2`, `SAVES` (f3/f4 = slot 1).
 - **Desde panel:** bloque Partidas → elegir slot → Guardar / Cargar.
 
 Si cargas un slot vacio: mensaje de error (`E:1`).
@@ -521,6 +533,9 @@ Deberia verse algo como `T:OK servidor ...`.
 | Recurso | Ruta / URL |
 |---------|------------|
 | Panel | http://127.0.0.1:8080/ui |
+| Manifest / iconos panel | `server/web/manifest.webmanifest`, `icon-*.png` |
+| Icono fuente | `imagen/icon.png` |
+| Launcher CPC | `client/sintaxia.bas` |
 | Cliente CPC MODE 1 | `client/aventura.bas` |
 | Cliente CPC MODE 2 | `client/aventuramode2.bas` |
 | Arranque PC | `run_server.bat` |

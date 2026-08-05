@@ -1,0 +1,16 @@
+10 REM SINTAXIA - launcher MODE 1 / MODE 2
+20 MODE 1:BORDER 0
+30 INK 0,0:INK 1,26:INK 2,18:INK 3,6
+40 PAPER 0:PEN 1:CLS
+50 PRINT "======= SINTAXIA ======="
+60 PRINT
+70 PRINT "Elige modo de video:"
+80 PRINT
+90 PRINT " 1  MODE 1  (40 cols, color)"
+100 PRINT " 2  MODE 2  (80 cols, verde)"
+110 PRINT
+120 PRINT "Pulsa 1 o 2"
+130 K$=INKEY$:IF K$="" THEN 130
+140 IF K$="1" THEN RUN"aventura
+150 IF K$="2" THEN RUN"aventuramode2
+160 GOTO 130

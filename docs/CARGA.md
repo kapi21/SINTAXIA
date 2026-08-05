@@ -19,12 +19,14 @@ Invoke-WebRequest -Uri "http://192.168.1.4:8080/turn?msg=miro+la+cueva" -UseBasi
 
 ## Pasar el BASIC a la microSD
 1. Copia a la microSD de la M4:
+   - `client/sintaxia.bas` (launcher)
    - `client/aventura.bas`
+   - `client/aventuramode2.bas` (si usas MODE 2)
    - `client/TITLE.SCR` (pantalla de titulo; opcional pero recomendado)
-2. Si `RUN"aventura` no carga (fichero ASCII sin cabecera AMSDOS):
-   - Abre WinAPE/CPCemu, pega el listado, `SAVE"aventura`
+2. Si `RUN"sintaxia` no carga (fichero ASCII sin cabecera AMSDOS):
+   - Abre WinAPE/CPCemu, pega el listado, `SAVE"sintaxia`
    - Copia el `.bas` generado a la SD
-   - O teclea el listado en el CPC y `SAVE"aventura`
+   - O teclea el listado en el CPC y `SAVE"sintaxia`
 3. Alternativa M4 Web UI: `http://192.168.1.128` → subir fichero.
 
 ### Regenerar TITLE.SCR (PC)
@@ -37,9 +39,10 @@ Genera `TITLE.SCR` y preview PNG.
 ## En el CPC
 ```
 |NETSTAT
-RUN"aventura
+RUN"sintaxia
 ```
-Primero el titulo grafico (jingle) → **ESPACIO**. Luego ayuda → **ESPACIO**, ping, y el resumen **MUNDO** completo (si es largo, **ESPACIO** entre paginas).  
+Pulsa **1** (MODE 1) o **2** (MODE 2).  
+En MODE 1: primero el titulo grafico (jingle) → **ESPACIO**. Luego ayuda → **ESPACIO**, ping, y el resumen **MUNDO** completo (si es largo, **ESPACIO** entre paginas).  
 Si al cargar el `.bas` sale **Overflow**, revisa que no haya numeros de linea >32767.  
 Prueba mensajes: `miro la cueva`, `cojo la espada`, `atacar`, `tesoro`, `QUIT`
 

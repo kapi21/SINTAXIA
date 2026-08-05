@@ -80,7 +80,13 @@ def save_slot(ai: AdventureAI, slot: int, name: str | None = None, base: Path | 
     return payload
 
 
-def load_slot(ai: AdventureAI, slot: int, base: Path | None = None) -> dict[str, Any]:
+def load_slot(
+    ai: AdventureAI,
+    slot: int,
+    base: Path | None = None,
+    *,
+    width: int | None = None,
+) -> dict[str, Any]:
     slot = validate_slot(slot)
     path = slot_path(slot, base)
     if not path.is_file():
@@ -88,7 +94,7 @@ def load_slot(ai: AdventureAI, slot: int, base: Path | None = None) -> dict[str,
     data = json.loads(path.read_text(encoding="utf-8"))
     if not isinstance(data, dict):
         raise ValueError("save corrupto")
-    ai.import_save(data)
+    ai.import_save(data, width=width, slot=slot)
     return data
 
 

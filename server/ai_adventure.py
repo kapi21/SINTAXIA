@@ -266,6 +266,122 @@ def parse_mundo_fields(system: str) -> dict[str, str]:
     return out
 
 
+def scrub_history_snippet(text: str, max_len: int = 120) -> str:
+    """Texto de historial limpio para recap de LOAD (ASCII, sin T:/S:)."""
+    t = normalize_cpc(str(text or ""))
+    t = re.sub(r"(?i)^T:", "", t).strip()
+    t = re.sub(r"(?i)\b[SEILF]:\S*", " ", t)
+    t = re.sub(r"\s+", " ", t).strip()
+    if len(t) > max_len:
+        t = t[: max_len - 3].rstrip() + "..."
+    return t
+
+
+def build_load_resume_lines(
+    system: str,
+    state: dict[str, Any] | None,
+    history: list[dict[str, str]] | None,
+    *,
+    had_system: bool = True,
+    slot: int | None = None,
+    width: int | None = None,
+) -> list[str]:
+    """Lineas de reanudacion tras LOAD: mundo + situacion + lo hecho."""
+    w = clamp_cols(width)
+    st = state or {}
+    fields = parse_mundo_fields(system)
+    loc = normalize_cpc(str(st.get("location") or fields.get("location") or "lugar desconocido"))
+    inv_list = st.get("inventory") if isinstance(st.get("inventory"), list) else []
+    inv = ", ".join(str(x) for x in inv_list) if inv_list else "(vacio)"
+    inv = normalize_cpc(inv)
+    flags = st.get("flags") if isinstance(st.get("flags"), dict) else {}
+    flag_on = [str(k) for k, v in flags.items() if v]
+    flag_s = ", ".join(flag_on[:4]) if flag_on else ""
+
+    head = "Partida cargada."
+    if slot is not None:
+        head = f"Cargado slot {int(slot)}."
+
+    chunks: list[str] = [head, "Te reubicas en la aventura."]
+    if fields.get("title"):
+        chunks.append(f"Mundo: {fields['title']}")
+    if fields.get("premise"):
+        # Premisa completa pero el wrap/max_lines recortaran luego
+        chunks.append(f"Premisa: {fields['premise']}")
+    if fields.get("tone"):
+        chunks.append(f"Tono: {fields['tone']}")
+    chunks.append("-- Situacion --")
+    chunks.append(f"Lugar: {loc}")
+    chunks.append(f"Llevas: {inv}")
+    if flag_s:
+        chunks.append(f"Hechos: {flag_s}")
+
+    # Recap desde historial
+    hist = history or []
+    last_user = ""
+    last_asst = ""
+    for item in reversed(hist):
+        if not isinstance(item, dict):
+            continue
+        role = str(item.get("role", ""))
+        content = scrub_history_snippet(str(item.get("content", "")), 140)
+        if not content:
+            continue
+        if role == "assistant" and not last_asst:
+            last_asst = content
+        elif role == "user" and not last_user:
+            last_user = content
+        if last_user and last_asst:
+            break
+    if last_user or last_asst:
+        chunks.append("-- Hasta ahora --")
+        if last_user:
+            chunks.append(f"Tu ultima accion: {last_user}")
+        if last_asst:
+            chunks.append(f"El maestro: {last_asst}")
+
+    if not had_system:
+        chunks.append("Mundo no embebido; sigue el prompt actual.")
+
+    chunks.append("Continua cuando quieras.")
+
+    lines: list[str] = []
+    for chunk in chunks:
+        chunk = chunk.strip()
+        if not chunk:
+            continue
+        wrapped = [L for L in wrap_lines(chunk, width=w, max_lines=12) if L.strip()]
+        lines.extend(wrapped)
+        if len(lines) >= CPC_MAX_LINES:
+            break
+    return [L for L in lines[:CPC_MAX_LINES] if L.strip()] or [
+        "Partida cargada.",
+        f"Lugar: {loc}",
+        f"Llevas: {inv}",
+    ]
+
+
+def build_load_resume_packet(
+    system: str,
+    state: dict[str, Any] | None,
+    history: list[dict[str, str]] | None,
+    *,
+    had_system: bool = True,
+    slot: int | None = None,
+    width: int | None = None,
+) -> str:
+    w = clamp_cols(width)
+    lines = build_load_resume_lines(
+        system,
+        state,
+        history,
+        had_system=had_system,
+        slot=slot,
+        width=w,
+    )
+    return build_packet(lines, sound=0, error=0, width=w, reflow=False, max_lines=CPC_MAX_LINES)
+
+
 # Tope amplio solo para /intro (resumen MUNDO completo). Turnos siguen en 12.
 CPC_INTRO_MAX_LINES = 60
 
@@ -644,15 +760,36 @@ class AdventureAI:
             content = str(item.get("content", ""))
             if role in ("user", "assistant") and content:
                 clean_hist.append({"role": role, "content": content[:500]})
+        start = GameState.from_dict(self.start_state).to_dict()
         return {
+            "system": str(self.system or ""),
+            "start_state": start,
             "state": self.state.to_dict(),
             "history": clean_hist,
         }
 
-    def import_save(self, data: dict[str, Any]) -> None:
-        self.state = GameState.from_dict(data.get("state") if isinstance(data, dict) else None)
+    def import_save(
+        self,
+        data: dict[str, Any],
+        *,
+        width: int | None = None,
+        slot: int | None = None,
+    ) -> None:
+        if not isinstance(data, dict):
+            data = {}
+        had_system = False
+        sys_raw = data.get("system")
+        if isinstance(sys_raw, str) and sys_raw.strip():
+            self.system = sys_raw
+            self._intro_packet = None
+            self._intro_key = ""
+            had_system = True
+        ss = data.get("start_state")
+        if isinstance(ss, dict):
+            self.start_state = GameState.from_dict(ss).to_dict()
+        self.state = GameState.from_dict(data.get("state"))
         self.history = []
-        hist = data.get("history") if isinstance(data, dict) else None
+        hist = data.get("history")
         if isinstance(hist, list):
             for item in hist[-(self.max_history * 2) :]:
                 if not isinstance(item, dict):
@@ -663,11 +800,13 @@ class AdventureAI:
                     self.history.append({"role": role, "content": content[:500]})
         self.last_error = ""
         self.last_user = "(load)"
-        inv = ", ".join(self.state.inventory) if self.state.inventory else "(vacio)"
-        self.last_packet = packet_from_text(
-            f"Partida cargada. Lugar: {self.state.location}. Llevas: {inv}.",
-            sound=0,
-            error=0,
+        self.last_packet = build_load_resume_packet(
+            self.system,
+            self.state.to_dict(),
+            self.history,
+            had_system=had_system,
+            slot=slot,
+            width=width,
         )
 
     def config_dict(self) -> dict[str, Any]:
@@ -680,6 +819,7 @@ class AdventureAI:
             "api_key_set": bool(self.api_key),
             "temperature": self.temperature,
             "system": self.system,
+            "start_state": dict(self.start_state) if isinstance(self.start_state, dict) else {},
             "history_len": len(self.history),
             "last_user": self.last_user,
             "last_packet": self.last_packet,
