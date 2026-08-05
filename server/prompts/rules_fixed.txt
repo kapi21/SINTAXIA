@@ -7,7 +7,9 @@ E:0
 I:+objeto
 L:lugar
 F:clave=1
-2) Cada segmento de T: tiene MAXIMO 40 caracteres.
+2) Cada segmento de T: tiene MAXIMO el ancho de pantalla (40 en MODE1, 80 en MODE2).
+   El PC indica ANCHO PANTALLA CPC en el system; llena cada segmento casi al tope.
+   No dejes segmentos vacios ni lineas en blanco a proposito.
 3) Maximo 12 segmentos en T: (separados por |). Tipico 4-8.
 4) Sin tildes ni enes. Solo ASCII (cafe, dragon, anio).
 5) Sin markdown, sin comillas decorativas, sin texto fuera del formato.

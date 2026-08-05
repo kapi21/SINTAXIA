@@ -12,7 +12,9 @@
 
 **SINTAXIA** conecta un **Amstrad CPC real** (464/6128) a un LLM (Ollama, OpenAI, Claude, Gemini u API compatible) mediante la **[M4 Board](https://github.com/M4Duke/m4hardware)** (Wi‑Fi).
 
-La IA genera la narrativa en lenguaje natural, el PC la empaqueta para el CPC (40 columnas, ASCII) y el cliente en Locomotive BASIC muestra el texto y dispara efectos en el chip **AY‑3‑8912**.
+La IA genera la narrativa en lenguaje natural, el PC la empaqueta para el CPC (**40** u **80** columnas segun el cliente, ASCII) y el cliente en Locomotive BASIC muestra el texto y dispara efectos en el chip **AY‑3‑8912**.
+
+**Clientes CPC:** `client/aventura.bas` (MODE 1) · `client/aventuramode2.bas` (MODE 2, 80 cols).
 
 **Manual completo (instalacion PC/CPC, panel IU, comandos):** [docs/MANUAL.md](docs/MANUAL.md)  
 **Guia sencilla para jugar (sin tecnicismos):** [docs/GUIA_JUGADOR.md](docs/GUIA_JUGADOR.md)
@@ -26,13 +28,14 @@ SINTAXIA/
   README.md
   run_server.bat          # atajo Windows
   client/
-    aventura.bas          # cliente Locomotive BASIC (M4)
+    aventura.bas          # cliente MODE 1 (40 cols, M4)
+    aventuramode2.bas     # cliente MODE 2 (80 cols, negro/verde)
     TITLE.SCR             # pantalla de titulo MODE 1 (opcional)
   server/
     server.py             # HTTP :8080
-    ai_adventure.py       # Ollama + historial
-    protocol.py           # paquete T:/S:/E:
-    cpc_text.py           # ASCII CPC + wrap 40
+    ai_adventure.py       # LLM + historial
+    protocol.py           # paquete T:/S:/E: (+ ?cols=)
+    cpc_text.py           # ASCII CPC + wrap
     prompts/master.txt
   tests/
   docs/                   # notas de carga / planes
@@ -129,12 +132,14 @@ Más detalle: **[docs/MANUAL.md](docs/MANUAL.md)** (manual de usuario) y `docs/C
 
 ## Cliente en el CPC
 
-1. Copia `client/aventura.bas` y `client/TITLE.SCR` a la microSD de la M4
-   (si no carga como ASCII, `SAVE"aventura` desde un emulador y copia el `.bas` tokenizado)
-2. En el CPC: `|NETSTAT` y comprueba IP
-3. `RUN"aventura`
-4. Escribe acciones en español natural (`miro alrededor`, `voy al norte`, …).  
-   Comandos: `INV`, `SAVE 1`–`3`, `LOAD 1`–`3`, `SAVES`, `NUEVA`, `AYUDA`, `QUIT`.
+1. Copia a la microSD de la M4:
+   - `client/aventura.bas` + `TITLE.SCR` (MODE 1), y/o
+   - `client/aventuramode2.bas` (MODE 2; CRLF)
+2. Ajusta `P$` (IP del PC) en el `.bas` que uses
+3. En el CPC: `|NETSTAT` y comprueba IP
+4. `RUN"aventura` o `RUN"aventuramode2`
+5. Escribe acciones en español natural (`miro alrededor`, `voy al norte`, …).  
+   Comandos: `INV`, `SAVE 1`–`3`, `LOAD 1`–`3`, `SAVES`, `NUEVA`, `AYUDA`, `MUTE`/`AUDIO`, `QUIT`.
 
 Prueba manual de red desde BASIC:
 

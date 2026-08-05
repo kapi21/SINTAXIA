@@ -18,11 +18,18 @@ El maestro te responde con narracion **letra a letra** (maquina de escribir) y s
 
 Ademas:
 
-- **Colores dinamicos** segun el momento (historia, peligro, tesoro…).
-- **El borde cambia** segun la situacion.
+- **Colores de texto** en MODE 1 segun el momento (historia, peligro, tesoro…).
+- **Borde negro** fijo (sin flashes de color).
 - Al empezar (y con `NUEVA`) lees un **resumen de situacion**: donde estas y que ocurre, sin tecnicismos.
 - Puedes **guardar** la partida y retomarla otro dia.
-- Atajos: **f1** inventario, **f2** ayuda, **f3** guardar slot 1, **f4** cargar slot 1, **f5** nueva partida; **flechas arriba/abajo** recorren el historial (hasta 5); `!` repite el ultimo. **NUEVA** y **QUIT** piden confirmacion **S/N**.
+- Atajos: **f1** inventario, **f2** ayuda, **f3** guardar slot 1, **f4** cargar slot 1, **f5** nueva partida, **f6** alternar sonido; **flechas arriba/abajo** recorren el historial (hasta 5); `!` repite el ultimo. **NUEVA** y **QUIT** piden confirmacion **S/N**. `MUTE`/`SILENCIO` apagan el AY; `SONIDO` lo enciende; `AUDIO` alterna.
+
+Hay **dos clientes** en la microSD:
+
+| Fichero | Modo | Notas |
+|---------|------|--------|
+| `aventura.bas` | MODE 1 (40 cols) | Oficial; usa `TITLE.SCR` si esta en la SD |
+| `aventuramode2.bas` | MODE 2 (80 cols) | Negro/verde; mas texto por linea; sin `TITLE.SCR` |
 
 ---
 
@@ -30,7 +37,7 @@ Ademas:
 
 1. **Amstrad CPC** con **M4 Board** en tu Wi‑Fi.  
 2. **PC** (Windows) en la **misma Wi‑Fi**, con SINTAXIA y una IA (Ollama local, OpenRouter u otra API).  
-3. En la microSD: `aventura.bas` y, si puedes, `TITLE.SCR` (pantalla de titulo).
+3. En la microSD: `aventura.bas` (MODE 1) y, si quieres, `aventuramode2.bas` (MODE 2) y `TITLE.SCR` (solo MODE 1).
 
 Si alguien te lo dejo preparado, salta a [Empezar a jugar](#empezar-a-jugar).
 
@@ -58,21 +65,22 @@ Sin IA: **Modo = Mock** para probar que la red funciona.
 
 1. Enciende el CPC con la M4 y la microSD.  
 2. `|NETSTAT` — debe haber red e IP.  
-3. Si hay que cambiar la IP del PC, esta al inicio de `aventura.bas` (`P$`).  
-4. `RUN"aventura`  
-   (Con `TITLE.SCR` en la misma carpeta veras el titulo grafico.)
+3. Si hay que cambiar la IP del PC, esta al inicio de `aventura.bas` o `aventuramode2.bas` (`P$`).  
+4. `RUN"aventura`   — MODE 1  
+   o `RUN"aventuramode2` — MODE 2 (80 columnas)  
+   (Con `TITLE.SCR` junto a `aventura.bas` veras el titulo grafico en MODE 1.)
 
 ---
 
 ## Empezar a jugar
 
 1. PC: `run_server.bat` en marcha.  
-2. CPC: `RUN"aventura`  
-3. Si hay titulo grafico, suena un **tema de intro** corto; pulsa **ESPACIO** (corta la musica).  
+2. CPC: `RUN"aventura` o `RUN"aventuramode2`  
+3. En MODE 1, si hay titulo grafico, suena un **tema de intro** corto; pulsa **ESPACIO** (corta la musica). En MODE 2 hay splash de texto.  
 4. Lee la pantalla de ayuda y pulsa **ESPACIO** otra vez para comprobar el servidor.  
 5. Debe salir **SERVIDOR ACTIVO** y luego **Situacion** (resumen completo del mundo; si es largo, pulsa **ESPACIO** entre paginas).  
-6. Escribe, por ejemplo: `miro alrededor` (DEL borra; **f1**–**f5** atajos; flechas = historial).  
-7. Espera (“Pensando…” con spinner) y lee la respuesta. Una tecla salta el typewriter. Tras cada turno veras una linea de guiones.
+6. Escribe, por ejemplo: `miro alrededor` (DEL borra; **f1**–**f6** atajos; flechas = historial).  
+7. Espera (“Pensando…” con spinner) y lee la respuesta. Una tecla salta el typewriter.
 
 Si sale **SERVIDOR NO ACTIVO**: PC con el programa abierto, misma Wi‑Fi, tecla **R** para reintentar.
 
@@ -95,12 +103,15 @@ Si sale **SERVIDOR NO ACTIVO**: PC con el programa abierto, misma Wi‑Fi, tecla
 | `!` o **flechas ARR/ABJ** | Historial de hasta 5 comandos (`!` = el ultimo). |
 | `D` | Diagnostico (conexion / estado). |
 | `NUEVA` / `REINICIO` o **f5** | Nueva partida (pide **S/N**). |
+| `MUTE` / `SILENCIO` | Apaga efectos AY. |
+| `SONIDO` | Enciende efectos AY. |
+| `AUDIO` o **f6** | Alterna sonido on/off. |
 | `SAVE 2` / `SAVE 3` | Otras ranuras. |
 | `LOAD 2` / `LOAD 3` | Carga esas ranuras. |
 | `SAVES` | Lista ranuras. |
 | `QUIT` | Salir (pide **S/N**; guarda slot 1 y reinicia CPC). |
 
-Durante la narracion, **cualquier tecla** acelera el texto. Tras cada respuesta hay un **separador** (`----…`) para distinguir turnos.
+Durante la narracion, **cualquier tecla** acelera el texto.
 
 Ejemplos de acciones:
 

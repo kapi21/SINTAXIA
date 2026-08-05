@@ -27,7 +27,14 @@ from llm_providers import (
     openai_chat_url,
     openai_compat_headers,
 )
-from protocol import CPC_MAX_LINES, CPC_WIDTH, build_packet, packet_from_text, parse_packet
+from protocol import (
+    CPC_MAX_LINES,
+    CPC_WIDTH,
+    build_packet,
+    clamp_cols,
+    packet_from_text,
+    parse_packet,
+)
 
 ROOT = Path(__file__).resolve().parent
 DEFAULT_MODEL = "llama3.1:8b"
@@ -56,7 +63,7 @@ def load_fixed_rules() -> str:
     return (
         "REGLAS ESTRICTAS DE SALIDA:\n"
         "T:texto|en|segmentos\nS:N\nE:0\n"
-        "Cada etiqueta en su linea. Max 40 chars por segmento T:. ASCII."
+        "Cada etiqueta en su linea. Max chars por segmento T: segun ANCHO. ASCII."
     )
 
 
@@ -263,8 +270,14 @@ def parse_mundo_fields(system: str) -> dict[str, str]:
 CPC_INTRO_MAX_LINES = 60
 
 
-def build_mundo_intro_lines(system: str, state: dict[str, Any] | None = None) -> list[str]:
-    """Lineas T: del resumen inicial = bloque MUNDO completo (wrap 40, sin tope 12)."""
+def build_mundo_intro_lines(
+    system: str,
+    state: dict[str, Any] | None = None,
+    *,
+    width: int | None = None,
+) -> list[str]:
+    """Lineas T: del resumen inicial = bloque MUNDO completo (sin tope 12)."""
+    w = clamp_cols(width)
     st = state or {}
     fields = parse_mundo_fields(system)
     loc = fields.get("location") or normalize_cpc(str(st.get("location") or "lugar desconocido"))
@@ -289,7 +302,7 @@ def build_mundo_intro_lines(system: str, state: dict[str, Any] | None = None) ->
         if not chunk:
             continue
         wrapped = [
-            L for L in wrap_lines(chunk, width=CPC_WIDTH, max_lines=CPC_INTRO_MAX_LINES) if L.strip()
+            L for L in wrap_lines(chunk, width=w, max_lines=CPC_INTRO_MAX_LINES) if L.strip()
         ]
         lines.extend(wrapped)
         if len(lines) >= CPC_INTRO_MAX_LINES:
@@ -301,14 +314,22 @@ def build_mundo_intro_lines(system: str, state: dict[str, Any] | None = None) ->
     ]
 
 
-def build_mundo_intro_packet(system: str, state: dict[str, Any] | None = None) -> str:
-    lines = build_mundo_intro_lines(system, state)
+def build_mundo_intro_packet(
+    system: str,
+    state: dict[str, Any] | None = None,
+    *,
+    width: int | None = None,
+) -> str:
+    w = clamp_cols(width)
+    lines = build_mundo_intro_lines(system, state, width=w)
     return build_packet(
         lines,
         sound=2,
         error=0,
         max_lines=max(len(lines), 1),
         ellipsis=False,
+        width=w,
+        reflow=False,
     )
 
 
@@ -425,7 +446,8 @@ def scrub_narrative_leaks(text: str) -> str:
     return text.strip()
 
 
-def repack_llm_text(raw: str) -> str:
+def repack_llm_text(raw: str, *, width: int | None = None) -> str:
+    w = clamp_cols(width)
     candidate = _extract_packetish(raw)
     pkt = parse_packet(candidate)
     if pkt["lines"] == ["Sin texto"] or (
@@ -434,9 +456,14 @@ def repack_llm_text(raw: str) -> str:
         text = normalize_cpc(re.sub(r"^T:", "", raw, flags=re.I))
         text = scrub_narrative_leaks(text)
         text = re.sub(r"(?i)[SEILF]:\s*\S+", " ", text)
-        lines = wrap_lines(text, width=CPC_WIDTH, max_lines=CPC_MAX_LINES)
+        lines = wrap_lines(text, width=w, max_lines=CPC_MAX_LINES)
         sound = infer_sound(text)
-        return build_packet(lines or ["El maestro duda un momento."], sound=sound, error=0)
+        return build_packet(
+            lines or ["El maestro duda un momento."],
+            sound=sound,
+            error=0,
+            width=w,
+        )
 
     sound = pkt["sound"]
     cleaned_parts = [scrub_narrative_leaks(x).strip() for x in pkt["lines"]]
@@ -445,14 +472,14 @@ def repack_llm_text(raw: str) -> str:
         sound = infer_sound(" ".join(cleaned_parts))
     joined = " ".join(cleaned_parts)
     joined = scrub_narrative_leaks(joined)
-    lines = [L for L in wrap_lines(joined, width=CPC_WIDTH, max_lines=CPC_MAX_LINES) if L.strip()]
+    lines = [L for L in wrap_lines(joined, width=w, max_lines=CPC_MAX_LINES) if L.strip()]
     if not lines:
         lines = [
-            normalize_cpc(x)[:CPC_WIDTH]
+            normalize_cpc(x)[:w]
             for x in cleaned_parts[:CPC_MAX_LINES]
             if normalize_cpc(x).strip()
         ]
-    return build_packet(lines, sound=sound, error=0)
+    return build_packet(lines, sound=sound, error=0, width=w)
 
 
 def list_ollama_models(tags_url: str = "http://127.0.0.1:11434/api/tags") -> list[str]:
@@ -589,17 +616,20 @@ class AdventureAI:
         self._intro_packet: str | None = None
         self._intro_key = ""
 
-    def reset(self) -> str:
+    def reset(self, *, width: int | None = None) -> str:
         """Reinicia historial y estado al mundo base actual del servidor."""
+        w = clamp_cols(width)
         self.history.clear()
         self.state = GameState.from_dict(self.start_state)
         self.last_user = "(reset)"
         self.last_error = ""
-        inv = ", ".join(self.state.inventory) if self.state.inventory else "(vacio)"
+        self._intro_packet = None
+        self._intro_key = ""
         packet = packet_from_text(
-            f"Partida reiniciada. Lugar: {self.state.location}. Llevas: {inv}.",
+            "Partida reiniciada.",
             sound=0,
             error=0,
+            width=w,
         )
         self.last_packet = packet
         return packet
@@ -722,11 +752,14 @@ class AdventureAI:
             self._intro_key = ""
             self.last_user = "(mundo por defecto)"
 
-    def _messages(self, user_msg: str) -> list[dict[str, str]]:
+    def _messages(self, user_msg: str, *, width: int | None = None) -> list[dict[str, str]]:
+        w = clamp_cols(width)
         system = (
             self.system
             + "\n\n"
             + self.state.summary_for_prompt()
+            + f"\n\nANCHO PANTALLA CPC: cada segmento T: MAXIMO {w} caracteres. "
+            f"Llena cada segmento cerca de {w} chars; sin segmentos vacios ni cortos a proposito."
             + "\n\nEscribe con coherencia: mayusculas al inicio de frase, "
             "puntuacion y gramatica correctas. ASCII sin tildes ni enes."
         )
@@ -756,10 +789,10 @@ class AdventureAI:
                 msg += f": {detail}"
             raise RuntimeError(msg) from exc
 
-    def _chat_ollama(self, user_msg: str, timeout: float = 120.0) -> str:
+    def _chat_ollama(self, user_msg: str, timeout: float = 120.0, *, width: int | None = None) -> str:
         payload = {
             "model": self.model,
-            "messages": self._messages(user_msg),
+            "messages": self._messages(user_msg, width=width),
             "stream": False,
             "options": {
                 "temperature": self.temperature,
@@ -774,10 +807,10 @@ class AdventureAI:
         )
         return data["message"]["content"]
 
-    def _chat_openai_compat(self, user_msg: str, timeout: float = 120.0) -> str:
+    def _chat_openai_compat(self, user_msg: str, timeout: float = 120.0, *, width: int | None = None) -> str:
         payload = {
             "model": self.model,
-            "messages": self._messages(user_msg),
+            "messages": self._messages(user_msg, width=width),
             "temperature": self.temperature,
             "max_tokens": 500,
         }
@@ -787,8 +820,8 @@ class AdventureAI:
         )
         return extract_openai_text(data)
 
-    def _chat_claude(self, user_msg: str, timeout: float = 120.0) -> str:
-        messages = self._messages(user_msg)
+    def _chat_claude(self, user_msg: str, timeout: float = 120.0, *, width: int | None = None) -> str:
+        messages = self._messages(user_msg, width=width)
         system = messages[0]["content"] if messages and messages[0]["role"] == "system" else self.system
         payload = build_claude_payload(
             self.model, system, messages, self.temperature, 500
@@ -801,10 +834,10 @@ class AdventureAI:
         data = self._post_json(claude_url(self.api_base), payload, headers, timeout)
         return extract_claude_text(data)
 
-    def _chat_gemini(self, user_msg: str, timeout: float = 120.0) -> str:
+    def _chat_gemini(self, user_msg: str, timeout: float = 120.0, *, width: int | None = None) -> str:
         if not self.api_key.strip():
             raise RuntimeError("Falta API key de Gemini. Pegala en el panel y pulsa Guardar.")
-        messages = self._messages(user_msg)
+        messages = self._messages(user_msg, width=width)
         system = messages[0]["content"] if messages and messages[0]["role"] == "system" else self.system
         payload = build_gemini_payload(system, messages, self.temperature, 500)
         url = gemini_url(self.api_base, self.model)
@@ -820,14 +853,14 @@ class AdventureAI:
             raise RuntimeError(f"Gemini respondio vacio: {json.dumps(data)[:300]}")
         return text
 
-    def _chat(self, user_msg: str, timeout: float = 120.0) -> str:
+    def _chat(self, user_msg: str, timeout: float = 120.0, *, width: int | None = None) -> str:
         if self.provider in OPENAI_COMPAT_PROVIDERS:
-            return self._chat_openai_compat(user_msg, timeout)
+            return self._chat_openai_compat(user_msg, timeout, width=width)
         if self.provider == "claude":
-            return self._chat_claude(user_msg, timeout)
+            return self._chat_claude(user_msg, timeout, width=width)
         if self.provider == "gemini":
-            return self._chat_gemini(user_msg, timeout)
-        return self._chat_ollama(user_msg, timeout)
+            return self._chat_gemini(user_msg, timeout, width=width)
+        return self._chat_ollama(user_msg, timeout, width=width)
 
     def _one_shot_chat(self, system: str, user: str, timeout: float = 120.0) -> str:
         """Chat sin historial ni estado de partida (para generar prompts)."""
@@ -898,22 +931,35 @@ class AdventureAI:
         raw = self._one_shot_chat(_PROMPT_GEN_SYSTEM, _PROMPT_GEN_USER, timeout=timeout)
         return parse_generated_bundle(raw)
 
-    def intro_packet(self, use_llm: bool = True, timeout: float = 120.0) -> str:
+    def intro_packet(
+        self,
+        use_llm: bool = True,
+        timeout: float = 120.0,
+        *,
+        width: int | None = None,
+    ) -> str:
         """Resumen de arranque = bloque MUNDO DE ESTA PARTIDA (sin LLM)."""
         del use_llm, timeout  # API estable; el resumen ya no llama al modelo
+        w = clamp_cols(width)
         st = self.state.to_dict()
-        cache_key = self.system.strip() + "\n" + json.dumps(st, ensure_ascii=True, sort_keys=True)
+        cache_key = (
+            f"w={w}\n"
+            + self.system.strip()
+            + "\n"
+            + json.dumps(st, ensure_ascii=True, sort_keys=True)
+        )
         if self._intro_packet and self._intro_key == cache_key:
             return self._intro_packet
 
-        packet = build_mundo_intro_packet(self.system, st)
+        packet = build_mundo_intro_packet(self.system, st, width=w)
         self._intro_packet = packet
         self._intro_key = cache_key
         self.last_user = "(intro)"
         self.last_packet = packet
         return packet
 
-    def inventory_packet(self) -> str:
+    def inventory_packet(self, *, width: int | None = None) -> str:
+        w = clamp_cols(width)
         if not self.state.inventory:
             text = "No llevas nada. Las manos vacias."
             sound = 0
@@ -921,12 +967,13 @@ class AdventureAI:
             items = ", ".join(self.state.inventory)
             text = f"Llevas: {items}."
             sound = 3
-        packet = packet_from_text(text, sound=sound, error=0)
+        packet = packet_from_text(text, sound=sound, error=0, width=w)
         self.last_user = "inventario"
         self.last_packet = packet
         return packet
 
-    def turn(self, user_msg: str) -> str:
+    def turn(self, user_msg: str, *, width: int | None = None) -> str:
+        w = clamp_cols(width)
         user_msg = normalize_cpc(user_msg)[:120] or "miro alrededor"
         self.last_user = user_msg
         self.last_error = ""
@@ -934,15 +981,15 @@ class AdventureAI:
         # Comando local: inventario / inv
         low = user_msg.lower().strip()
         if low in ("inventario", "inv", "i", "objetos"):
-            return self.inventory_packet()
+            return self.inventory_packet(width=w)
 
         try:
-            raw = self._chat(user_msg)
+            raw = self._chat(user_msg, width=w)
             if not isinstance(raw, str):
                 raise RuntimeError(f"Respuesta LLM invalida (tipo {type(raw).__name__})")
             raw = normalize_protocol_separators(raw)
             raw = self.state.apply_meta_lines(raw)
-            packet = repack_llm_text(raw)
+            packet = repack_llm_text(raw, width=w)
             self.history.append({"role": "user", "content": user_msg})
             # Guardar texto narrativo limpio (no el paquete con metadatos T:/S:/E:)
             # para que el historial que recibe el LLM sea conversación natural
@@ -970,6 +1017,7 @@ class AdventureAI:
                 "El maestro no responde. Revisa el panel web / LLM.",
                 sound=0,
                 error=1,
+                width=w,
             )
             self.last_packet = packet
             return packet

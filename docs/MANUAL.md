@@ -32,9 +32,9 @@ En lugar de un parser rigido de verbos (`COGER LLAVE`, `IR NORTE` solo si estan 
 
 El CPC se encarga de:
 
-- Mostrar el texto (MODE 1, 40 columnas, ASCII sin tildes)
+- Mostrar el texto (MODE 1 / MODE 2, ASCII sin tildes)
 - Reproducir efectos en el chip **AY‑3‑8912**
-- Cambiar el **borde** de pantalla segun el tono de la escena
+- Mantener **borde negro**
 - Enviar y recibir datos por la M4 via HTTP
 
 El PC se encarga de:
@@ -68,7 +68,7 @@ Inspiracion: las aventuras conversacionales espanolas de los 80 (Don Quijote, El
 1. El BASIC pide al servidor un turno.
 2. El servidor consulta la IA (o el mock).
 3. La respuesta vuelve en un formato fijo que el CPC entiende.
-4. Se imprime el texto, suena el AY y cambia el borde.
+4. Se imprime el texto y suena el AY.
 
 Todo ocurre en la **misma Wi‑Fi** (LAN). No hace falta Internet si usas Ollama en local o el modo Mock.
 
@@ -91,7 +91,7 @@ Todo ocurre en la **misma Wi‑Fi** (LAN). No hace falta Internet si usas Ollama
 |----------|---------|
 | Maquina | CPC 464 / 664 / 6128 / Plus |
 | Expansion | **M4 Board** con Wi‑Fi configurada |
-| microSD | FAT32, con el cliente `aventura.bas` |
+| microSD | FAT32, con `aventura.bas` y/o `aventuramode2.bas` |
 | Firmware M4 | Preferible reciente (comandos `|HTTPGET`, `|NETSTAT`) |
 
 ### Red de ejemplo (PoC)
@@ -103,7 +103,7 @@ Todo ocurre en la **misma Wi‑Fi** (LAN). No hace falta Internet si usas Ollama
 | M4 / CPC | `192.168.1.128` |
 | Puerto del juego | `8080` |
 
-Si tus IPs son distintas, cambia la del PC en `client/aventura.bas` (variable `P$`).
+Si tus IPs son distintas, cambia la del PC en `client/aventura.bas` o `aventuramode2.bas` (`P$`).
 
 ---
 
@@ -124,6 +124,8 @@ Estructura relevante:
 SINTAXIA/
   run_server.bat
   client/aventura.bas
+  client/aventuramode2.bas
+  client/TITLE.SCR
   server/
     server.py
     web/ui.html
@@ -194,17 +196,21 @@ Documentacion hardware: [M4Duke/m4hardware](https://github.com/M4Duke/m4hardware
 
 ### 5.2 Copiar el cliente BASIC
 
-1. En el PC, toma el fichero `client/aventura.bas`.
-2. Copialo a la microSD de la M4 (raiz o una carpeta).
+1. En el PC, copia a la microSD de la M4:
+   - `client/aventura.bas` — cliente **MODE 1** (40 columnas; oficial)
+   - `client/aventuramode2.bas` — cliente **MODE 2** (80 columnas; negro/verde)
+   - `client/TITLE.SCR` (opcional; solo con MODE 1)
+2. En ambos `.bas` revisa `P$` (IP del PC). El de MODE 2 pide `?cols=80` al servidor.
 3. Si `RUN"aventura` **no** carga (ASCII sin cabecera AMSDOS):
    - Abre un emulador (WinAPE, CPCemu…), pega el listado, `SAVE"aventura`
    - Copia el `.bas` tokenizado a la SD
    - Alternativa: teclear en el CPC y `SAVE"aventura`
    - Alternativa: subir por la web UI de la M4
+   - Igual para `aventuramode2` (el fichero **debe** ir en CRLF)
 
 ### 5.3 Ajustar la IP del PC en el BASIC
 
-Abre `aventura.bas` y localiza:
+Abre `aventura.bas` o `aventuramode2.bas` y localiza:
 
 ```basic
 30 P$="192.168.1.4:8080"
@@ -221,7 +227,7 @@ Orden recomendado:
 1. **PC:** Wi‑Fi/LAN OK, Ollama OK (si usas IA).
 2. **PC:** `run_server.bat` (o `cd server` + `python server.py`).
 3. **PC (opcional):** abre http://127.0.0.1:8080/ui y revisa el modo/modelo.
-4. **CPC:** `|NETSTAT` → `RUN"aventura`
+4. **CPC:** `|NETSTAT` → `RUN"aventura` o `RUN"aventuramode2`
 5. En la intro del CPC debe salir **SERVIDOR ACTIVO**. Si no, pulsa `R` para reintentar o revisa IP/firewall.
 
 ### Variantes de arranque del servidor
@@ -328,16 +334,18 @@ No confundir con las **partidas** (`server/saves/slotN.json`): eso es inventario
 
 ### 8.1 Pantalla de introduccion
 
-Al hacer `RUN"aventura`:
+Al hacer `RUN"aventura` (MODE 1):
 
-1. Paleta MODE 1 + destello CRT.
-2. (Opcional) Splash grafico `TITLE.SCR` con **tema AY de intro** (~3 s, tono misterioso) y pedal suave en espera → pulsa **ESPACIO** (corta el sonido).
-3. Pantalla de ayuda (comandos + IP `P$`) con tono suave en espera → **ESPACIO**.
+1. Paleta MODE 1 (borde negro).
+2. (Opcional) Splash grafico `TITLE.SCR` con **tema AY de intro** (~3 s) → **ESPACIO**.
+3. Pantalla de ayuda (comandos + IP `P$`) → **ESPACIO**.
 4. **Comprobando servidor…** (`/ping`).
-5. Si OK: **SERVIDOR ACTIVO** → **Situacion** (`/intro`: bloque MUNDO completo del prompt; sin LLM; si hay muchas lineas, **ESPACIO** entre paginas).
-6. Si falla: indica `run_server.bat` e IP; `R` reintenta, **espacio** continua sin garantia de red.
+5. Si OK: **SERVIDOR ACTIVO** → **Situacion** (`/intro`).
+6. Si falla: `R` reintenta, **espacio** continua sin garantia de red.
 
-Nota CPC: al editar `aventura.bas` en ASCII, evita numeros de linea **>32767** (provoca **Overflow** al cargar).
+`RUN"aventuramode2` es el mismo flujo en **MODE 2** (80 cols, negro/verde, splash tipografico; sin `TITLE.SCR`). Las URLs llevan `?cols=80` para que el PC empaquete a ancho completo.
+
+Nota CPC: al editar los `.bas` en ASCII, evita numeros de linea **>32767**. `aventuramode2.bas` debe guardarse con **CRLF**.
 
 ### 8.2 Bucle de juego
 
@@ -345,33 +353,31 @@ Nota CPC: al editar `aventura.bas` en ASCII, evita numeros de linea **>32767** (
 > miro alrededor
 Pensando /-\|
 (texto narrado letra a letra; una tecla lo acelera)
-(efecto de sonido + color de borde)
+(efecto de sonido AY segun S:)
 >
 ```
 
-La entrada usa un **editor por teclado** (no el `INPUT` clasico): puedes borrar con DEL/backspace. Softkeys: **f1**=`INV`, **f2**=`AYUDA`, **f3**=`SAVE 1`, **f4**=`LOAD 1`, **f5**=`NUEVA`. **Flechas arriba/abajo** recorren un historial de hasta **5** comandos; `!` repite el mas reciente. **NUEVA**/**REINICIO** y **QUIT** piden confirmacion **S/N**.
+La entrada usa un **editor por teclado** (no el `INPUT` clasico): puedes borrar con DEL/backspace. Softkeys: **f1**=`INV`, **f2**=`AYUDA`, **f3**=`SAVE 1`, **f4**=`LOAD 1`, **f5**=`NUEVA`, **f6**=`AUDIO`. **Flechas arriba/abajo** recorren un historial de hasta **5** comandos; `!` repite el mas reciente. **NUEVA**/**REINICIO** y **QUIT** piden confirmacion **S/N**. `MUTE`/`SILENCIO` / `SONIDO` / `AUDIO` controlan el AY (`MU%`).
 
 Escribes lo que haces **en espanol natural**. No hace falta sintaxis de parser clasico, aunque frases claras ayudan a la IA.
 
 Limites practicos:
 
 - Mensaje de jugador ~80 caracteres (URL BASIC); editor limita a ~60 en pantalla.
-- Respuesta: hasta **12 lineas** de **40** caracteres (varias filas `T:` si hace falta; solo si hay mas de 12 el PC corta con `...`).
+- Respuesta: hasta **12 lineas**; ancho **40** (MODE 1) u **80** (MODE 2 via `?cols=80`). El PC rellena el ancho (reflow) y omite segmentos vacios.
 
-### 8.3 Atmosfera y presentacion visual (Edicion Comercial AAA)
+### 8.3 Atmosfera y presentacion visual
 
-- **Efecto Typewriter (maquina de escribir)**: El texto narrativo aparece caracter a caracter acompanado de un sutil sonido de pulsacion en el chip AY-3-8912. **Cualquier tecla** acelera el resto del paquete (tambien en la Situacion, reiniciado tras cada pagina).
-- **Separador de turno**: Tras cada respuesta se imprime una linea de guiones para no mezclar turnos al hacer scroll.
-- **Tinta dinamica segun tono (`S:`)**:
-  - `S=0` (neutro) / `S=2` (ambiente): Tinta ambar (`PEN 1`).
-  - `S=1` (peligro) / `S=4` (combate): Tinta roja alerta (`PEN 3`).
-  - `S=3` (objeto) / `S=5` (victoria): Tinta verde brillante (`PEN 2`).
-- **Borde dinamico**: Cambia de color segun `S:` (peligro, cueva, tesoro, combate, victoria).
-- **Animacion Pensando...**: Spinner `/-\|` y tono corto antes del HTTP.
-- **Tema de titulo** (La menor, ~3 s) + pedal atmosferico; tono suave en la pantalla de ayuda.
-- **Efecto CRT Flash**: Destello inicial al arrancar.
-- **SOUND** con envolventes `ENV`/`ENT` (peligro sombrio, eco, arpegio objeto, golpe, fanfarria; pitido de rechazo si `E:1`).
-- El texto de cada **turno** se imprime **completo** (sin pausa de pagina). La **Situacion** (`/intro`) si puede pedir ESPACIO entre paginas.
+- **Typewriter**: texto caracter a caracter + clic AY; **cualquier tecla** acelera.
+- **Cursor de prompt**: bloque `CHR$(143)` parpadeante.
+- **Borde**: siempre **negro** (sin microflash de color).
+- **Clientes**: `aventura.bas` MODE 1 (40 cols + `TITLE.SCR`); `aventuramode2.bas` MODE 2 (80 cols, negro/verde).
+- **Ancho dinamico**: el servidor acepta `?cols=40|80` y hace **reflow** denso (sin segmentos vacios).
+- **Animacion Pensando...**: spinner `/-\|` antes del HTTP.
+- **Tema de titulo** + pedal (MODE 1 / splash MODE 2).
+- **SOUND** con envolventes `ENV`/`ENT` segun `S:` / `E:1`.
+- **NUEVA/f5**: `/reset` en silencio y luego intro (sin mensaje Lugar/Llevas intermedio).
+- Viñetas `PLOT`/`DRAW`: **desactivadas**.
 
 ---
 
@@ -392,8 +398,11 @@ Todo se escribe en el prompt `>` (mayusculas/minusculas toleradas en la mayoria)
 | `!` / **flechas ARR/ABJ** | Historial de hasta 5 comandos (`!` = el mas reciente). |
 | `D` / `DEBUG` | Pantalla de diagnostico (IP host, ultima URL, turnos, historial, estado red). |
 | `QUIT` | Pide **S/N**; si S: auto-guarda slot 1 y reinicia el CPC (`CALL 0`). |
+| `MUTE` / `SILENCIO` | Apaga efectos AY (spinner, typewriter, leitmotifs, tema). |
+| `SONIDO` | Enciende efectos AY. |
+| `AUDIO` / **f6** | Alterna sonido on/off. |
 
-Softkeys **f1**–**f5** se definen al arrancar (`KEY`) e inyectan el comando con Enter.
+Softkeys **f1**–**f6** se definen al arrancar (`KEY`) e inyectan el comando con Enter.
 
 Cualquier otra frase se interpreta como **accion de aventura** y se envia a `/turn`.
 
@@ -417,7 +426,7 @@ En modo Mock, ciertas palabras disparan escenas fijas (`cueva`, `espada`, `ataca
 2. `|HTTPGET` descarga la respuesta a `RESP.TXT`.
 3. Se leen lineas `T:`, `S:`, `E:`.
 4. Se imprimen las lineas de texto (separador `|`).
-5. Suena el AY y cambia el borde.
+5. Suena el AY (borde permanece negro).
 
 Metadatos que la IA puede enviar (`I:+llave`, `L:cripta`, `F:puerta=1`) **los procesa solo el PC**; el CPC no los muestra.
 
@@ -512,7 +521,8 @@ Deberia verse algo como `T:OK servidor ...`.
 | Recurso | Ruta / URL |
 |---------|------------|
 | Panel | http://127.0.0.1:8080/ui |
-| Cliente CPC | `client/aventura.bas` |
+| Cliente CPC MODE 1 | `client/aventura.bas` |
+| Cliente CPC MODE 2 | `client/aventuramode2.bas` |
 | Arranque PC | `run_server.bat` |
 | Ajustes locales | `server/settings.json` (gitignored) |
 | Esquema paquete | `docs/ESQUEMA_PAQUETE.md` |

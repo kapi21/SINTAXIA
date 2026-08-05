@@ -49,6 +49,13 @@ def test_build_mundo_intro_includes_full_premise():
     assert "mamparos" in blob
     assert "..." not in blob
     assert all(len(L) <= 40 for L in lines)
+    assert all(L.strip() for L in lines)
+
+
+def test_build_mundo_intro_mode2_width():
+    lines = build_mundo_intro_lines(SAMPLE, width=80)
+    assert all(len(L) <= 80 for L in lines)
+    assert any(len(L) > 40 for L in lines)
 
 
 def test_intro_packet_no_llm_shape():

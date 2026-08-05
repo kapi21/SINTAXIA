@@ -34,7 +34,16 @@ from ai_adventure import (
 )
 from llm_providers import DEFAULTS as PROV_DEFAULTS
 from llm_providers import PROVIDERS
-from protocol import build_packet, packet_from_text, parse_packet
+from protocol import build_packet, clamp_cols, packet_from_text, parse_packet
+
+
+def parse_cols(qs: dict) -> int:
+    """Lee ?cols=40|80 (tambien ?w=). Default MODE 1 = 40."""
+    raw = (qs.get("cols") or qs.get("w") or ["40"])[0]
+    try:
+        return clamp_cols(int(raw))
+    except (TypeError, ValueError):
+        return clamp_cols(40)
 from save_game import delete_slot, list_slots, load_slot, save_slot, validate_slot
 from settings_store import load_settings, save_settings
 
@@ -66,31 +75,35 @@ _last_mock_packet = ""
 _last_mock_user = ""
 
 
-def turn_reply(user_msg: str) -> str:
+def turn_reply(user_msg: str, *, width: int | None = None) -> str:
+    w = clamp_cols(width)
     # 1) Bloqueo rapido: comandos locales + decidir si es LLM o mock
     with _state_lock:
         ai = ensure_ai()
         low = (user_msg or "").strip().lower()
 
         if low in ("inventario", "inv", "i", "objetos"):
-            return ai.inventory_packet()
+            return ai.inventory_packet(width=w)
 
-        local = handle_save_load_command(ai, low)
+        local = handle_save_load_command(ai, low, width=w)
         if local is not None:
             return local
 
         if _use_mock or _ai is None:
-            return mock_reply(user_msg)
+            return mock_reply(user_msg, width=w)
 
     # 2) Llamada al LLM fuera del _state_lock para no congelar el servidor.
     #    _turn_lock serializa las llamadas (evita que dos turnos corran a la vez)
     #    pero permite que /ping, /api/config, /api/models, etc. respondan siempre.
     with _turn_lock:
-        return ai.turn(user_msg)
+        return ai.turn(user_msg, width=w)
 
 
-def handle_save_load_command(ai: AdventureAI, low: str) -> str | None:
+def handle_save_load_command(
+    ai: AdventureAI, low: str, *, width: int | None = None
+) -> str | None:
     """Comandos locales SAVE/LOAD/SAVES. Devuelve paquete o None."""
+    w = clamp_cols(width)
     if low in ("saves", "partidas", "slots"):
         lines: list[str] = []
         for info in list_slots():
@@ -101,7 +114,7 @@ def handle_save_load_command(ai: AdventureAI, low: str) -> str | None:
                 lines.append(f"Slot {n}: {name} {when}")
             else:
                 lines.append(f"Slot {n}: (vacio)")
-        packet = build_packet(lines, sound=0, error=0)
+        packet = build_packet(lines, sound=0, error=0, width=w)
         ai.last_user = "saves"
         ai.last_packet = packet
         return packet
@@ -111,9 +124,13 @@ def handle_save_load_command(ai: AdventureAI, low: str) -> str | None:
         slot = int(m.group(2))
         try:
             save_slot(ai, slot)
-            packet = packet_from_text(f"Partida guardada en slot {slot}.", sound=5, error=0)
+            packet = packet_from_text(
+                f"Partida guardada en slot {slot}.", sound=5, error=0, width=w
+            )
         except Exception as exc:
-            packet = packet_from_text(f"No se pudo guardar: {exc}", sound=0, error=1)
+            packet = packet_from_text(
+                f"No se pudo guardar: {exc}", sound=0, error=1, width=w
+            )
         ai.last_user = f"save {slot}"
         ai.last_packet = packet
         return packet
@@ -128,13 +145,16 @@ def handle_save_load_command(ai: AdventureAI, low: str) -> str | None:
                 f"Cargado slot {slot}. {ai.state.location}. Llevas: {inv}.",
                 sound=0,
                 error=0,
+                width=w,
             )
             ai.last_packet = packet
         except FileNotFoundError:
-            packet = packet_from_text(f"Slot {slot} vacio.", sound=0, error=1)
+            packet = packet_from_text(f"Slot {slot} vacio.", sound=0, error=1, width=w)
             ai.last_packet = packet
         except Exception as exc:
-            packet = packet_from_text(f"Error al cargar: {exc}", sound=0, error=1)
+            packet = packet_from_text(
+                f"Error al cargar: {exc}", sound=0, error=1, width=w
+            )
             ai.last_packet = packet
         ai.last_user = f"load {slot}"
         return packet
@@ -142,8 +162,9 @@ def handle_save_load_command(ai: AdventureAI, low: str) -> str | None:
     return None
 
 
-def mock_reply(user_msg: str) -> str:
+def mock_reply(user_msg: str, *, width: int | None = None) -> str:
     global _last_mock_packet, _last_mock_user
+    w = clamp_cols(width)
     ai = ensure_ai()
     msg = (user_msg or "").lower()
     _last_mock_user = user_msg
@@ -154,12 +175,12 @@ def mock_reply(user_msg: str) -> str:
                     ai.state.inventory.append("espada")
             if any(k in msg for k in ("tesoro", "abrir")):
                 ai.state.flags["tesoro"] = True
-            packet = packet_from_text(text, sound=sound, error=0)
+            packet = packet_from_text(text, sound=sound, error=0, width=w)
             _last_mock_packet = packet
             ai.last_packet = packet
             ai.last_user = user_msg
             return packet
-    packet = packet_from_text(_DEFAULT_TEXT, sound=0, error=0)
+    packet = packet_from_text(_DEFAULT_TEXT, sound=0, error=0, width=w)
     _last_mock_packet = packet
     ai.last_packet = packet
     ai.last_user = user_msg
@@ -304,42 +325,47 @@ class AdventureHandler(BaseHTTPRequestHandler):
             return
 
         if path == "/ping":
+            cols = parse_cols(qs)
             with _state_lock:
                 mode = "mock" if _use_mock else "ollama"
                 if not _use_mock and _ai is not None:
                     mode = _ai.provider
-            body = packet_from_text(f"OK servidor {mode}", sound=0, error=0)
+            body = packet_from_text(f"OK servidor {mode}", sound=0, error=0, width=cols)
             self._send_plain(body)
             return
 
         if path == "/intro":
+            cols = parse_cols(qs)
             with _state_lock:
                 use_mock = _use_mock
                 ai = ensure_ai()
             with _turn_lock:
-                print(f"INTRO mock={use_mock} provider={ai.provider}")
-                body = ai.intro_packet(use_llm=not use_mock)
+                print(f"INTRO mock={use_mock} provider={ai.provider} cols={cols}")
+                body = ai.intro_packet(use_llm=not use_mock, width=cols)
             self._send_plain(body)
             return
 
         if path == "/reset":
+            cols = parse_cols(qs)
             with _state_lock:
                 if _ai is not None:
-                    body = _ai.reset()
+                    body = _ai.reset(width=cols)
                 else:
                     body = packet_from_text(
-                        "Partida reiniciada. Estas en la entrada del castillo.",
+                        "Partida reiniciada.",
                         sound=0,
                         error=0,
+                        width=cols,
                     )
             self._send_plain(body)
             return
 
         if path == "/turn":
+            cols = parse_cols(qs)
             raw_msg = qs.get("msg", [""])[0]
             msg = unquote_plus(raw_msg)[:120]
-            print(f"TURN: {msg!r}")
-            body = turn_reply(msg)
+            print(f"TURN cols={cols}: {msg!r}")
+            body = turn_reply(msg, width=cols)
             parse_packet(body)
             self._send_plain(body)
             return
@@ -383,7 +409,7 @@ class AdventureHandler(BaseHTTPRequestHandler):
                     body = _ai.reset()
                 else:
                     body = packet_from_text(
-                        "Partida reiniciada. Estas en la entrada del castillo.",
+                        "Partida reiniciada.",
                         sound=0,
                         error=0,
                     )

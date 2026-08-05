@@ -1,4 +1,4 @@
-10 REM SINTAXIA - cliente CPC + M4 (Edicion Comercial AAA)
+10 REM SINTAXIA - PRUEBA MODE 2 (negro/verde, centrado)
 20 REM Host PC: cambia P$ si muda la IP
 30 P$="192.168.1.4:8080"
 40 S=0:E=0:OK=0:INTRO=0:TN%=0:PREV$="":NL%=0
@@ -6,10 +6,10 @@
 45 DIM LN$(12)
 46 DIM H$(5):HC%=0:HI%=0
 50 ON ERROR GOTO 8000
-60 GOSUB 7000:REM paleta + CRT flash (M5)
+60 GOSUB 7000:REM MODE 2 matrix
 61 GOSUB 1150:REM softkeys f1-f6
 62 GOSUB 9200:REM envolventes AY
-64 GOSUB 6900:REM titulo grafico TITLE.SCR
+64 GOSUB 6900:REM splash matrix (sin TITLE.SCR)
 65 INTRO=1
 70 GOSUB 7100:REM intro + ping
 75 INTRO=0
@@ -18,8 +18,8 @@
 110 GOSUB 1200:REM entrada INKEY$ + cursor
 120 IF M$="" THEN 100
 125 IF M$<>"!" THEN 128
-126 IF HC%<1 THEN PEN 3:PRINT "Sin comando anterior":PEN 1:GOTO 100
-127 M$=H$(1):PEN 2:PRINT ">";M$:PEN 1:GOTO 130
+126 IF HC%<1 THEN PEN 1:PRINT "Sin comando anterior":PEN 1:GOTO 100
+127 M$=H$(1):PEN 1:PRINT ">";M$:PEN 1:GOTO 130
 128 GOSUB 1400:REM push historial
 130 IF M$="QUIT" OR M$="quit" OR M$="Quit" THEN GOSUB 8450:GOTO 100
 135 IF M$="D" OR M$="d" THEN GOSUB 7900:GOTO 100
@@ -32,8 +32,8 @@
 156 IF M$="SONIDO" OR M$="sonido" OR M$="Sonido" THEN GOSUB 8300:GOTO 100
 157 IF M$="AUDIO" OR M$="audio" OR M$="Audio" THEN GOSUB 8300:GOTO 100
 160 GOSUB 1000:REM encode -> U$
-170 A$="http://"+P$+"/turn?msg="+U$+">RESP.TXT"
-180 IF LEN(A$)>240 THEN PEN 3:PRINT "Msg muy largo":PEN 1:GOTO 100
+170 A$="http://"+P$+"/turn?msg="+U$+"&cols=80>RESP.TXT"
+180 IF LEN(A$)>240 THEN PEN 1:PRINT "Msg muy largo":PEN 1:GOTO 100
 190 GOSUB 1500:REM animacion pensando
 200 |HTTPGET,@A$
 202 FOR D=1 TO 40:NEXT D
@@ -42,7 +42,7 @@
 205 TN%=TN%+1
 210 GOSUB 2000:REM leer RESP.TXT
 220 GOSUB 9100:REM borde + microflash segun S
-230 GOSUB 3000:REM mostrar LN$() + separador
+230 GOSUB 3000:REM mostrar LN$() (+ vinieta)
 240 GOSUB 9000:REM sonido AY (S:) o rechazo (E:1)
 250 GOTO 100
 1000 REM --- encode URL: espacio->+ resto especial->omitir ---
@@ -69,7 +69,7 @@
 1178 KEY 6,"AUDIO"+CHR$(13)
 1180 RETURN
 1200 REM --- editor entrada INKEY$ + cursor parpadeante ---
-1210 M$="":HI%=0:CU%=0:BL%=0:PEN 2:PRINT "> ";:PEN 1
+1210 M$="":HI%=0:CU%=0:BL%=0:PEN 1:PRINT "> ";:PEN 1
 1212 WHILE INKEY$<>"":WEND
 1220 K$=INKEY$:IF K$<>"" THEN GOSUB 1278:GOTO 1230
 1222 BL%=BL%+1:IF BL%<28 THEN 1220
@@ -110,7 +110,7 @@
 1420 H$(1)=M$:PREV$=M$:IF HC%<5 THEN HC%=HC%+1
 1425 RETURN
 1500 REM --- animacion pensando (spinner) ---
-1510 PEN 2:PRINT "Pensando ";
+1510 PEN 1:PRINT "Pensando ";
 1520 SP$="/-\|"
 1530 SI%=1
 1540 FOR I=1 TO 12
@@ -130,7 +130,8 @@
 2030 IF EOF THEN 2090
 2040 LINE INPUT #9,L$
 2045 IF INSTR(L$,"download")>0 OR INSTR(L$,"Download")>0 THEN 2030
-2050 IF LEFT$(L$,2)="T:" OR LEFT$(L$,2)="t:" THEN T$=MID$(L$,3):GOSUB 2200:GOSUB 2600:GOSUB 2700
+2050 IF LEFT$(L$,2)<>"T:" AND LEFT$(L$,2)<>"t:" THEN 2060
+2052 T$=MID$(L$,3):GOSUB 2200:GOSUB 2600:GOSUB 2700
 2060 IF LEFT$(L$,2)="S:" OR LEFT$(L$,2)="s:" THEN S=VAL(MID$(L$,3))
 2070 IF LEFT$(L$,2)="E:" OR LEFT$(L$,2)="e:" THEN E=VAL(MID$(L$,3))
 2080 GOTO 2030
@@ -161,8 +162,8 @@
 2380 R$=MID$(R$,K+1)
 2390 GOTO 2310
 2500 REM --- borra "downloaded in" de la M4 ---
-2510 LOCATE 1,24:PRINT SPACE$(40);
-2512 LOCATE 1,25:PRINT SPACE$(40);
+2510 LOCATE 1,24:PRINT SPACE$(80);
+2512 LOCATE 1,25:PRINT SPACE$(80);
 2514 PEN 1:RETURN
 2600 REM --- quita sufijo downloaded de T$ ---
 2610 K=INSTR(T$,"download")
@@ -185,10 +186,10 @@
 2790 IF J=0 THEN RETURN
 2800 P=J+1
 2810 GOTO 2730
-3000 REM --- imprime LN$() ---
-3010 IF E<>0 THEN PEN 3:PRINT "ERROR:":PEN 1
+3000 REM --- imprime LN$() (matrix) ---
+3010 IF E<>0 THEN PEN 1:PRINT "ERROR:":PEN 1
 3015 GOSUB 3200:REM seleccionar PEN segun S (M3)
-3016 GOSUB 9600:REM vinieta MODE1 en fila actual
+3016 GOSUB 9600:REM vinieta en fila actual
 3020 IF NL%<1 THEN PRINT "Sin respuesta":PEN 1:GOTO 3080
 3022 FAST%=0
 3024 WHILE INKEY$<>"":WEND
@@ -198,11 +199,8 @@
 3060 NEXT I%
 3070 REM (sin linea en blanco extra)
 3080 PEN 1:RETURN
-3200 REM --- selecciona PEN segun S (M3) ---
-3210 IF S=0 OR S=2 THEN PEN 1:RETURN
-3220 IF S=1 OR S=4 THEN PEN 3:RETURN
-3230 IF S=3 OR S=5 THEN PEN 2:RETURN
-3240 PEN 1:RETURN
+3200 REM --- MODE 2: solo verde ---
+3210 PEN 1:RETURN
 3300 REM --- typewriter; cualquier tecla = volcado rapido (todo el paquete) ---
 3310 FOR K%=1 TO LEN(LLINE$)
 3320 C1$=MID$(LLINE$,K%,1)
@@ -213,7 +211,7 @@
 3370 PRINT
 3380 RETURN
 3400 REM --- pausa pagina teatral ---
-3410 PAPER 2:PEN 0:PRINT " Pulsa ESPACIO ";:PAPER 0:PEN 1:PRINT
+3410 PAPER 1:PEN 0:PRINT " Pulsa ESPACIO ";:PAPER 0:PEN 1:PRINT
 3420 K$=INKEY$:IF K$="" THEN 3420
 3430 IF K$<>" " THEN 3420
 3440 RETURN
@@ -240,57 +238,53 @@
 3590 IF J=0 THEN 3525
 3592 P=J+1:GOTO 3565
 3595 CLOSEIN:PEN 1:RETURN
-6900 REM --- titulo grafico TITLE.SCR / ESPACIO + tema ---
-6905 ON ERROR GOTO 6980
-6910 LOAD"TITLE.SCR",&C000
-6915 ON ERROR GOTO 8000
-6918 DR%=0:GOSUB 9400:REM tema intro
-6920 W%=0
-6925 K$=INKEY$:IF K$<>"" THEN 6931
-6926 W%=W%+1:IF W%<75 THEN 6925
-6927 W%=0
-6928 IF MU%=0 THEN 6925
-6929 IF DR%=0 THEN SOUND 2,568,30,2,2,0,0:DR%=1:GOTO 6925
-6930 SOUND 2,638,30,2,2,0,0:DR%=0:GOTO 6925
-6931 IF K$<>" " THEN 6925
-6932 SOUND 1,0,0,0:SOUND 2,0,0,0:SOUND 4,0,0,0
-6935 CLS
-6940 RETURN
-6980 REM sin TITLE.SCR: texto minimo
-6985 ECODE=ERR
-6987 RESUME 6990
-6990 ON ERROR GOTO 8000
-6992 CLS
-6994 PEN 3:PRINT "SINTAXIA":PEN 1
-6995 PRINT "(Sin TITLE.SCR Err ";ECODE;")"
-6996 PRINT:PRINT "Pulsa ESPACIO"
-6997 DR%=0:GOSUB 9400
-6998 GOTO 6920
-7000 REM --- paleta MODE 1 (borde negro fijo) ---
-7010 MODE 1
+6900 REM --- splash titulo MODE2 (texto; TITLE.SCR es MODE1) ---
+6910 CLS
+6912 PRINT:PRINT:PRINT
+6915 TX$="S I N T A X I A":GOSUB 8800
+6920 TX$="----------------------------------------":GOSUB 8800
+6925 TX$="Aventura conversacional con IA":GOSUB 8800
+6930 TX$="Amstrad CPC + M4 Board":GOSUB 8800
+6935 PRINT
+6940 TX$="Tu historia empieza con una frase.":GOSUB 8800
+6945 TX$="El maestro narra. Tu decides.":GOSUB 8800
+6950 PRINT
+6955 TX$="Pulsa ESPACIO":GOSUB 8800
+6960 DR%=0:GOSUB 9400
+6965 W%=0
+6970 K$=INKEY$:IF K$<>"" THEN 6980
+6972 W%=W%+1:IF W%<75 THEN 6970
+6974 W%=0
+6975 IF MU%=0 THEN 6970
+6976 IF DR%=0 THEN SOUND 2,568,30,2,2,0,0:DR%=1:GOTO 6970
+6977 SOUND 2,638,30,2,2,0,0:DR%=0:GOTO 6970
+6980 IF K$<>" " THEN 6970
+6982 SOUND 1,0,0,0:SOUND 2,0,0,0:SOUND 4,0,0,0
+6985 CLS
+6990 RETURN
+7000 REM --- MODE 2: negro + verde (borde negro fijo) ---
+7010 MODE 2
 7020 BORDER 0
 7030 INK 0,0
-7040 INK 1,15
-7050 INK 2,26
-7060 INK 3,6
-7070 PAPER 0:PEN 1:CLS
-7075 WINDOW #0,1,40,1,25
+7040 INK 1,18
+7050 PAPER 0:PEN 1:CLS
+7060 WINDOW #0,1,80,1,25
 7080 RETURN
-7100 REM --- pantalla de introduccion (lineas <=40 cols) ---
+7100 REM --- pantalla de introduccion MODE2 centrada ---
 7110 CLS
-7112 WINDOW #0,1,40,1,25
-7120 PEN 2:PRINT "======= SINTAXIA =======":PEN 1
-7130 PRINT "Aventura conversacional con IA"
-7140 PRINT "Amstrad CPC + placa M4 WiFi"
+7112 WINDOW #0,1,80,1,25
+7120 TX$="======= SINTAXIA =======":GOSUB 8800
+7130 TX$="Aventura conversacional con IA":GOSUB 8800
+7140 TX$="Amstrad CPC + M4  [MODE 2]":GOSUB 8800
 7150 PRINT
-7160 PRINT "Escribe en espanol lo que haces."
-7170 GOSUB 8100:REM lista comandos (compartida)
+7160 TX$="Escribe en espanol lo que haces.":GOSUB 8800
+7170 GOSUB 8100:REM lista comandos
 7235 PRINT
-7236 PRINT "Servidor: ";P$
+7236 TX$="Servidor: "+P$:GOSUB 8800
 7240 PRINT
-7242 PEN 2:PRINT "Pulsa ESPACIO para comprobar"
-7244 PRINT "el servidor del PC e iniciar"
-7246 PRINT "la partida.":PEN 1
+7242 TX$="Pulsa ESPACIO para comprobar":GOSUB 8800
+7244 TX$="el servidor e iniciar la partida":GOSUB 8800
+7246 PRINT
 7247 W%=0
 7248 K$=INKEY$:IF K$<>"" THEN 7253
 7249 W%=W%+1:IF W%<60 THEN 7248
@@ -299,11 +293,11 @@
 7253 IF K$<>" " THEN 7248
 7254 SOUND 1,0,0,0:SOUND 2,0,0,0:SOUND 4,0,0,0
 7255 CLS
-7256 PEN 2:PRINT "Comprobando servidor...":PEN 1
+7256 TX$="Comprobando servidor...":GOSUB 8800
 7258 GOSUB 7500
 7270 PRINT
 7280 IF OK=1 THEN 7400
-7290 PEN 3:PRINT "*** SERVIDOR NO ACTIVO ***":PEN 1
+7290 TX$="*** SERVIDOR NO ACTIVO ***":GOSUB 8800
 7300 PRINT "En el PC, misma WiFi:"
 7310 PRINT " run_server.bat"
 7320 PRINT "IP: ";P$
@@ -312,25 +306,25 @@
 7350 PRINT "o ESPACIO para seguir."
 7360 K$=INKEY$:IF K$="" THEN 7360
 7370 IF K$="r" OR K$="R" THEN 7255
-7380 PEN 3:PRINT "Sigues SIN servidor.":PEN 1
+7380 PEN 1:PRINT "Sigues SIN servidor.":PEN 1
 7390 GOTO 7450
 7400 CLS
-7402 PEN 2:PRINT "*** SERVIDOR ACTIVO ***":PEN 1
+7402 TX$="*** SERVIDOR ACTIVO ***":GOSUB 8800
 7410 PRINT
-7412 PEN 2:PRINT "-- Situacion --":PEN 1
+7412 TX$="-- Situacion --":GOSUB 8800
 7420 GOSUB 7650:REM /intro MUNDO completo
 7425 GOSUB 9100
 7430 GOSUB 9000
 7450 PRINT
-7460 PEN 2:PRINT "-- La aventura comienza --":PEN 1
-7470 PRINT "Escribe tu accion."
-7472 PRINT "Ejemplo: miro alrededor"
+7460 TX$="-- La aventura comienza --":GOSUB 8800
+7470 TX$="Escribe tu accion.":GOSUB 8800
+7472 TX$="Ejemplo: miro alrededor":GOSUB 8800
 7475 PRINT
 7480 RETURN
 7500 REM --- ping HTTP /ping ---
 7510 OK=0:E=1:T$=""
 7515 CLOSEIN
-7520 A$="http://"+P$+"/ping>PING.TXT"
+7520 A$="http://"+P$+"/ping?cols=80>PING.TXT"
 7530 |HTTPGET,@A$
 7535 FOR D=1 TO 120:NEXT D
 7537 GOSUB 2500
@@ -347,7 +341,7 @@
 7620 IF OK=1 THEN E=0
 7630 RETURN
 7650 REM --- GET /intro y mostrar TODO el MUNDO (paginado) ---
-7655 A$="http://"+P$+"/intro>RESP.TXT"
+7655 A$="http://"+P$+"/intro?cols=80>RESP.TXT"
 7660 |HTTPGET,@A$
 7665 FOR D=1 TO 100:NEXT D
 7670 GOSUB 2500
@@ -357,9 +351,9 @@
 7680 RETURN
 7700 REM --- ayuda in-game (misma lista que bienvenida) ---
 7710 PRINT
-7720 PEN 2:PRINT "======= SINTAXIA - AYUDA =======":PEN 1
-7730 PRINT "Escribe acciones libres en espanol."
-7735 PRINT "Ej: miro alrededor, voy al norte"
+7720 TX$="======= SINTAXIA - AYUDA =======":GOSUB 8800
+7730 TX$="Escribe acciones libres en espanol.":GOSUB 8800
+7735 TX$="Ej: miro alrededor, voy al norte":GOSUB 8800
 7740 GOSUB 8100:REM lista comandos (compartida)
 7760 PRINT "Servidor PC: ";P$
 7770 IF OK=1 THEN PRINT "Estado: activo" ELSE PRINT "Estado: dudoso"
@@ -367,26 +361,26 @@
 7790 RETURN
 7800 REM --- nueva partida /reset + intro del mundo actual ---
 7810 CLS
-7812 PEN 2:PRINT "Reiniciando aventura...":PEN 1
-7820 A$="http://"+P$+"/reset>RESP.TXT"
+7812 PEN 1:PRINT "Reiniciando aventura...":PEN 1
+7820 A$="http://"+P$+"/reset?cols=80>RESP.TXT"
 7830 |HTTPGET,@A$
 7835 FOR D=1 TO 50:NEXT D
 7840 GOSUB 2500
 7842 REM no mostrar paquete /reset (Lugar/Llevas); va la intro
 7845 GOSUB 2000:REM lee E: por si fallo
 7848 IF E<>0 THEN GOSUB 3000:GOSUB 9000:RETURN
-7870 PEN 2:PRINT "-- Situacion --":PEN 1
+7870 PEN 1:PRINT "-- Situacion --":PEN 1
 7880 GOSUB 7650
 7885 GOSUB 9100
 7892 GOSUB 9000
 7894 TN%=0:PREV$="":HC%=0:HI%=0
 7895 FOR I%=1 TO 5:H$(I%)="":NEXT
 7896 PRINT
-7898 PEN 2:PRINT "-- La aventura comienza --":PEN 1
+7898 PEN 1:PRINT "-- La aventura comienza --":PEN 1
 7899 PRINT:RETURN
 7900 REM --- diagnostico / debug D (M10) ---
 7910 PRINT
-7920 PEN 2:PRINT "=== SINTAXIA DEBUG ===":PEN 1
+7920 PEN 1:PRINT "=== SINTAXIA DEBUG ===":PEN 1
 7930 PRINT "PC Host: ";P$
 7940 PRINT "Ultima URL: ";LEFT$(A$,38)
 7950 PRINT "Turnos jugados: ";TN%
@@ -396,59 +390,64 @@
 7980 PRINT
 7990 RETURN
 8000 REM --- error handler ---
-8010 PEN 3:PRINT "Err ";ERR;" L";ERL;": Fallo red/archivo":PEN 1
+8010 PEN 1:PRINT "Err ";ERR;" L";ERL;": Fallo red/archivo":PEN 1
 8020 PRINT "Revisa run_server.bat en el PC."
 8025 GOSUB 9080:REM pitido rechazo
 8030 CLOSEIN
 8040 OK=0
 8050 IF INTRO=1 THEN RESUME 7280
 8060 RESUME 100
-8100 REM --- lista comandos (bienvenida + AYUDA), max 40 cols ---
+8100 REM --- lista comandos centrada (MODE2 80 cols) ---
 8110 PRINT
-8115 PEN 2:PRINT "Comandos:":PEN 1
-8120 PRINT " AYUDA / f2   esta ayuda"
-8125 PRINT " INV / f1     inventario"
-8130 PRINT " SAVE n / f3  guardar (f3=slot1)"
-8135 PRINT " LOAD n / f4  cargar (f4=slot1)"
-8140 PRINT " SAVES        listar partidas"
-8145 PRINT " NUEVA / f5   reiniciar (pide S/N)"
-8150 PRINT " QUIT         salir (pide S/N)"
-8155 PRINT " ARR/ABJ / !  historial (hasta 5)"
-8160 PRINT " tecla        saltar typewriter"
-8165 PRINT " D            diagnostico"
-8168 PRINT " MUTE/SONIDO  silencio / audio"
-8169 PRINT " AUDIO / f6   alternar sonido"
+8115 TX$="Comandos:":GOSUB 8800
+8120 TX$="AYUDA / f2   esta ayuda":GOSUB 8800
+8125 TX$="INV / f1     inventario":GOSUB 8800
+8130 TX$="SAVE n / f3  guardar (f3=slot1)":GOSUB 8800
+8135 TX$="LOAD n / f4  cargar (f4=slot1)":GOSUB 8800
+8140 TX$="SAVES        listar partidas":GOSUB 8800
+8145 TX$="NUEVA / f5   reiniciar (pide S/N)":GOSUB 8800
+8150 TX$="QUIT         salir (pide S/N)":GOSUB 8800
+8155 TX$="ARR/ABJ / !  historial (hasta 5)":GOSUB 8800
+8160 TX$="tecla        saltar typewriter":GOSUB 8800
+8165 TX$="D            diagnostico":GOSUB 8800
+8168 TX$="MUTE/SONIDO  silencio / audio":GOSUB 8800
+8169 TX$="AUDIO / f6   alternar sonido":GOSUB 8800
 8170 RETURN
 8300 REM --- MUTE / SILENCIO / SONIDO / AUDIO ---
 8305 IF M$="AUDIO" OR M$="audio" OR M$="Audio" THEN MU%=1-MU%:GOTO 8330
 8310 IF M$="SONIDO" OR M$="sonido" OR M$="Sonido" THEN MU%=1:GOTO 8330
 8315 MU%=0
 8330 SOUND 1,0,0,0:SOUND 2,0,0,0:SOUND 4,0,0,0
-8335 IF MU%=0 THEN PEN 2:PRINT "Sonido OFF":PEN 1:RETURN
-8340 PEN 2:PRINT "Sonido ON":PEN 1:RETURN
+8335 IF MU%=0 THEN PRINT "Sonido OFF":RETURN
+8340 PRINT "Sonido ON":RETURN
 8400 REM --- confirmar NUEVA / REINICIO ---
-8410 PEN 2:PRINT "Nueva partida? S/N":PEN 1
+8410 PEN 1:PRINT "Nueva partida? S/N":PEN 1
 8412 WHILE INKEY$<>"":WEND
 8415 K$=INKEY$:IF K$="" THEN 8415
 8420 IF K$="s" OR K$="S" THEN GOSUB 7800
 8425 RETURN
 8450 REM --- confirmar QUIT ---
-8460 PEN 2:PRINT "Salir y guardar? S/N":PEN 1
+8460 PEN 1:PRINT "Salir y guardar? S/N":PEN 1
 8462 WHILE INKEY$<>"":WEND
 8465 K$=INKEY$:IF K$="" THEN 8465
 8470 IF K$="s" OR K$="S" THEN 8500
 8475 RETURN
 8500 REM --- QUIT: auto-guardar slot 1 y reset CPC ---
-8510 PEN 2:PRINT "Guardando estado en servidor...":PEN 1
-8520 A$="http://"+P$+"/turn?msg=save+1>RESP.TXT"
+8510 PEN 1:PRINT "Guardando estado en servidor...":PEN 1
+8520 A$="http://"+P$+"/turn?msg=save+1&cols=80>RESP.TXT"
 8530 |HTTPGET,@A$
 8540 FOR D=1 TO 50:NEXT D
-8550 PEN 2:PRINT "Hasta pronto. Reiniciando CPC...":PEN 1
+8550 PEN 1:PRINT "Hasta pronto. Reiniciando CPC...":PEN 1
 8560 FOR D=1 TO 100:NEXT D
-8570 MODE 1:BORDER 0:CLS
+8570 MODE 2:BORDER 0:CLS
 8580 CALL 0
-8600 REM --- (reservado; marco WINDOW descartado: rompia scroll/M4) ---
+8600 REM --- (reservado) ---
 8610 RETURN
+8800 REM --- centra TX$ en 80 columnas ---
+8805 IF LEN(TX$)<1 THEN PRINT:RETURN
+8810 SP%=(80-LEN(TX$))/2:IF SP%<0 THEN SP%=0
+8815 PRINT SPC(SP%);TX$
+8820 RETURN
 9000 REM --- efectos AY: E:1 rechazo; si no, S=0..5 leitmotifs ---
 9002 IF MU%=0 THEN RETURN
 9005 IF E<>0 THEN GOSUB 9080:RETURN
