@@ -1,6 +1,6 @@
 # SINTAXIA — Handoff de sesión
 
-**Fecha:** 2026-08-04  
+**Fecha:** 2026-08-05 (tarde — lote cliente 1–4)  
 **Workspace local:** `C:\@MIS PROYECTOS\M4`  
 **Repo GitHub:** https://github.com/kapi21/SINTAXIA  
 **Branch:** `main`
@@ -10,38 +10,31 @@
 ## Estado
 
 - **Proyecto:** SINTAXIA — aventura conversacional IA para Amstrad CPC + M4 Board
-- **Hecho (sesión 2026-08-03):**
-  - Sin cabecera fija en juego (experimento HEADER descartado; quedan ficheros locales opcionales sin uso)
-  - `/intro` = bloque **MUNDO** completo (premisa sin truncar; `CPC_INTRO_MAX_LINES=60`; paginado ESPACIO ~18 líneas en CPC)
-  - Filtro de líneas vacías (servidor + cliente); reglas de mayúsculas/puntuación/gramática en `rules_fixed.txt`
-  - Wipe M4 `downloaded in…` (filas 24–25); spinner `/-\|` en “Pensando”
-  - Bienvenida reordenada: TITLE → ayuda → ESPACIO → ping → Situación → `>`
-  - Jingle AY corto en TITLE + tono suave en espera de ayuda; silencio al pulsar ESPACIO
-  - Fix Overflow al cargar `.bas`: no usar números de línea >32767 (p. ej. `72485`)
-  - I/L/F del Master: infraestructura lista (`game_state`, reglas, apply en `turn`, STATE al generar mundo); coherencia OK a efectos prácticos
-  - Editor `INKEY$` (backspace, flecha ARR / `!` repetir, `KEY` f1=INV f2=AYUDA) + skip typewriter con una tecla
-  - Leitmotifs AY: `S:1` acorde sombrío, `S:3` arpegio objeto, `S:5` fanfarria; pitido rechazo en `E:1` / error handler
-  - Tema intro TITLE (~3s, La menor) + pedal atmosférico hasta ESPACIO
+- **Servidor:** estable
+- **Hecho (lote alto cliente, 2026-08-05):**
+  1. Separador de turno (`STRING$(40,"-")` tras cada respuesta)
+  2. Historial 5 comandos (flechas ARR/ABJ; `!` = último)
+  3. Confirmación S/N en `QUIT` y `NUEVA`/`REINICIO`
+  4. Softkeys f3=`SAVE 1`, f4=`LOAD 1`, f5=`NUEVA` (+ f1/f2 previos)
+  - Docs: `GUIA_JUGADOR.md`, `MANUAL.md`, plan marcado hecho
 - **Pendiente:**
-  - Probar en hardware: jingle/intro + editor INKEY$/skip typewriter (copiar `.bas` + `TITLE.SCR`)
-  - (Largo) TCP/net ASM Z80
-  - Local: `client/aventura2.bas` sigue siendo experimento Gemini (no oficial)
-- **Verificar:**
-  - Copiar `client/aventura.bas` (+ `TITLE.SCR`) a la SD; reiniciar servidor Python
-  - Arranque: jingle TITLE → ayuda → ESPACIO → ping → Situación completa (paginada si hace falta)
-- **Riesgos:**
-  - `server/settings.json` con API key en claro; **no** subir a Git
-  - En CPC, números de línea BASIC ≤32767 de forma segura al editar ASCII
+  - Probar en hardware (copiar `aventura.bas` + `TITLE.SCR` a SD)
+  - Cola media del plan: HOST.TXT, paginado turnos, RAPIDO/MUTE, errores RESP…
+  - (Largo) TCP/net ASM
+- **Verificar en CPC:** historial ↑↓, f3–f5, confirm S/N, separador tras narración
+- **Riesgos:** `settings.json` no subir; líneas BASIC ≤32767; HEADER local sin commit
+
+Plan detalle: `docs/superpowers/plans/2026-08-05-client-cpc-mejoras.md`
 
 ---
 
 ## Flujo CPC al arrancar
 
-1. Splash `TITLE.SCR` + jingle → ESPACIO (corta sonido)  
+1. Splash `TITLE.SCR` + tema intro → ESPACIO (corta sonido)  
 2. Pantalla ayuda / comandos / IP `P$` + tono suave → ESPACIO  
 3. Ping `/ping`  
 4. Si OK: **Situacion** vía `/intro` (MUNDO completo; ESPACIO entre páginas)  
-5. Prompt `>`
+5. Prompt `>` (editor INKEY$)
 
 `NUEVA` / `REINICIO` = `/reset` (`start_state`) + `/intro`.
 
@@ -52,11 +45,7 @@
 | Pieza | Detalle |
 |-------|---------|
 | Proveedores | Ollama, OpenAI, Claude, Gemini, **OpenRouter**, Compatible |
-| OpenRouter | Base `https://openrouter.ai/api/v1`; modelo tipico `openrouter/auto` |
 | Guardar (panel) | Aplica config + escribe `server/settings.json` |
-| Cierre servidor | Vuelve a escribir settings (`atexit` / Ctrl+C) |
-| Arranque | Carga settings; flags `--provider`/`--model`/`--api-key`/`--mock` pisan esa sesión |
-| Generar prompt | WORLD+STATE; ensambla con `rules_fixed.txt` |
 | `/intro` | Sin LLM: parsea MUNDO del system prompt |
 
 Esquema T/S/E/I/L/F: `docs/ESQUEMA_PAQUETE.md`
@@ -75,72 +64,31 @@ Esquema T/S/E/I/L/F: `docs/ESQUEMA_PAQUETE.md`
 
 ---
 
-## Endpoints
-
-| Ruta | Uso |
-|------|-----|
-| `/ping` | Salud |
-| `/intro` | Resumen MUNDO (completo, sin LLM) |
-| `/turn?msg=` | Turno |
-| `/reset` | Reinicio al `start_state` |
-| `/ui` | Panel |
-| `/api/config` | Config (+ persistencia) |
-| `/api/generate_prompt` | Mundo + state |
-| `/api/default_prompt` | master + state default |
-| `/api/models` | Lista modelos del proveedor |
-
----
-
-## Protocolo (recordatorio)
-
-```text
-T:narracion|en|segmentos   ← solo esto al jugador
-S:0-5
-E:0|1
-I:+obj / L:lugar / F:clave=1   ← solo PC
-```
-
-Máx. 12×40 en turnos; `/intro` puede enviar más líneas `T:` (cliente paginado). Nunca unir con `/`.
-
----
-
 ## Archivos clave
 
 | Archivo | Rol |
 |---------|-----|
 | `client/aventura.bas` | Cliente CPC |
 | `client/TITLE.SCR` | Titulo Mode 1 |
-| `server/server.py` | HTTP, browser, carga/guarda settings |
-| `server/settings_store.py` | Lectura/escritura `settings.json` |
-| `server/settings.json` | **Local** (gitignored; API keys) |
-| `server/llm_providers.py` | Defaults + OpenRouter headers |
-| `server/ai_adventure.py` | LLM, intro MUNDO, generate, scrub |
-| `server/protocol.py` | Empaquetado T/S/E; intro sin ellipsis agresivo |
-| `server/prompts/rules_fixed.txt` | Reglas T/S/E + gramatica |
-| `server/web/ui.html` | Panel |
-| `tests/test_mundo_intro.py` | Tests intro MUNDO |
-| `docs/ESQUEMA_PAQUETE.md` | Esquema paquete |
+| `docs/superpowers/plans/2026-08-05-client-cpc-mejoras.md` | **Plan mañana (cliente)** |
 | `docs/GUIA_JUGADOR.md` / `MANUAL.md` | Docs usuario |
-
-**Local sin uso en juego (no hace falta en SD):** `HEADER.SCR`, `tools/make_header_scr.py`, previews de header, `imagen/splash2.png`.
+| `server/*` | HTTP + LLM (estable) |
 
 ---
 
 ## Decisiones
 
-- MODE 1; HTTP; plantilla fija + mundo LLM  
-- OpenRouter como proveedor de primera clase  
-- Settings locales con API key; no subir a GitHub  
-- Sin cabecera gráfica fija en partida (pantalla completa de texto)  
-- Intro = datos del MUNDO, no llamada LLM  
-- No subir `ConvImgCpc.exe`, saves JSON, overscan SCR  
+- MODE 1; HTTP; sin cabecera gráfica fija en partida  
+- Servidor estable → siguientes mejoras = **cliente**  
+- No charset / no `G:` por ahora  
+- No subir settings con API keys ni restos HEADER  
 
 ---
 
 ## Proximos pasos
 
-1. Probar jingle + intro paginada en hardware real tras copiar `.bas`  
-2. (Opcional) Portar ideas buenas de `aventura2.bas` al cliente oficial tras revisión  
+1. Probar lote 1–4 en CPC real (SD)  
+2. Cola media del plan si interesa (`HOST.TXT`, paginado turnos, MUTE…)  
 3. (Largo) net ASM  
 
 ---
@@ -148,5 +96,4 @@ Máx. 12×40 en turnos; `/intro` puede enviar más líneas `T:` (cliente paginad
 ## Notas Windows
 
 `run_server.bat` / `run_server.bat --no-browser`  
-`run_server.bat --provider openrouter --api-key …`  
 Rutas con `@`: comillas / `-LiteralPath`

@@ -349,7 +349,7 @@ Pensando /-\|
 >
 ```
 
-La entrada usa un **editor por teclado** (no el `INPUT` clasico): puedes borrar con DEL/backspace. Softkeys: **f1** = `INV`, **f2** = `AYUDA`. **Flecha arriba** o `!` repiten el ultimo comando.
+La entrada usa un **editor por teclado** (no el `INPUT` clasico): puedes borrar con DEL/backspace. Softkeys: **f1**=`INV`, **f2**=`AYUDA`, **f3**=`SAVE 1`, **f4**=`LOAD 1`, **f5**=`NUEVA`. **Flechas arriba/abajo** recorren un historial de hasta **5** comandos; `!` repite el mas reciente. **NUEVA**/**REINICIO** y **QUIT** piden confirmacion **S/N**.
 
 Escribes lo que haces **en espanol natural**. No hace falta sintaxis de parser clasico, aunque frases claras ayudan a la IA.
 
@@ -361,6 +361,7 @@ Limites practicos:
 ### 8.3 Atmosfera y presentacion visual (Edicion Comercial AAA)
 
 - **Efecto Typewriter (maquina de escribir)**: El texto narrativo aparece caracter a caracter acompanado de un sutil sonido de pulsacion en el chip AY-3-8912. **Cualquier tecla** acelera el resto del paquete (tambien en la Situacion, reiniciado tras cada pagina).
+- **Separador de turno**: Tras cada respuesta se imprime una linea de guiones para no mezclar turnos al hacer scroll.
 - **Tinta dinamica segun tono (`S:`)**:
   - `S=0` (neutro) / `S=2` (ambiente): Tinta ambar (`PEN 1`).
   - `S=1` (peligro) / `S=4` (combate): Tinta roja alerta (`PEN 3`).
@@ -383,16 +384,16 @@ Todo se escribe en el prompt `>` (mayusculas/minusculas toleradas en la mayoria)
 | Comando | Accion |
 |---------|--------|
 | `AYUDA` / **f2** | Muestra ayuda e IP del servidor (`P$`). |
-| `NUEVA` / `REINICIO` | `/reset` al **start_state** del servidor + vuelve a mostrar `/intro` (situacion). |
+| `NUEVA` / `REINICIO` / **f5** | Pide **S/N**; si S: `/reset` + `/intro`. |
 | `INV` / `inventario` / `objetos` / **f1** | Lista lo que llevas (sin llamar a la IA). |
-| `SAVE 1` … `SAVE 3` | Guarda partida en ese slot (tambien `GUARDAR 1`). |
-| `LOAD 1` … `LOAD 3` | Carga ese slot (tambien `CARGAR 1`). |
+| `SAVE 1` … `SAVE 3` / **f3**=`SAVE 1` | Guarda partida en ese slot. |
+| `LOAD 1` … `LOAD 3` / **f4**=`LOAD 1` | Carga ese slot. |
 | `SAVES` / `PARTIDAS` | Lista slots ocupados/vacios. |
-| `!` / **flecha arriba** | Repite el ultimo comando introducido. |
-| `D` / `DEBUG` | Pantalla de diagnostico (IP host, ultima URL, turnos, estado red). |
-| `QUIT` | Auto-guarda slot 1 y reinicia el CPC (`CALL 0`). |
+| `!` / **flechas ARR/ABJ** | Historial de hasta 5 comandos (`!` = el mas reciente). |
+| `D` / `DEBUG` | Pantalla de diagnostico (IP host, ultima URL, turnos, historial, estado red). |
+| `QUIT` | Pide **S/N**; si S: auto-guarda slot 1 y reinicia el CPC (`CALL 0`). |
 
-Las softkeys **f1**/**f2** se definen al arrancar (`KEY 1` / `KEY 2`) e inyectan el comando con Enter.
+Softkeys **f1**–**f5** se definen al arrancar (`KEY`) e inyectan el comando con Enter.
 
 Cualquier otra frase se interpreta como **accion de aventura** y se envia a `/turn`.
 

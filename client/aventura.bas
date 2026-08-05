@@ -3,9 +3,10 @@
 30 P$="192.168.1.4:8080"
 40 S=0:E=0:OK=0:INTRO=0:TN%=0:PREV$="":NL%=0
 45 DIM LN$(12)
+46 DIM H$(5):HC%=0:HI%=0
 50 ON ERROR GOTO 8000
 60 GOSUB 7000:REM paleta + CRT flash (M5)
-61 GOSUB 1150:REM teclas f1/f2
+61 GOSUB 1150:REM softkeys f1-f5
 62 GOSUB 9200:REM envolventes AY
 64 GOSUB 6900:REM titulo grafico TITLE.SCR
 65 INTRO=1
@@ -16,15 +17,15 @@
 110 GOSUB 1200:REM entrada INKEY$ -> M$
 120 IF M$="" THEN 100
 125 IF M$<>"!" THEN 128
-126 IF PREV$="" THEN PEN 3:PRINT "Sin comando anterior":PEN 1:GOTO 100
-127 M$=PREV$:PEN 2:PRINT ">";M$:PEN 1
-128 IF M$<>"!" THEN PREV$=M$
-130 IF M$="QUIT" OR M$="quit" OR M$="Quit" THEN 8500
+126 IF HC%<1 THEN PEN 3:PRINT "Sin comando anterior":PEN 1:GOTO 100
+127 M$=H$(1):PEN 2:PRINT ">";M$:PEN 1:GOTO 130
+128 GOSUB 1400:REM push historial
+130 IF M$="QUIT" OR M$="quit" OR M$="Quit" THEN GOSUB 8450:GOTO 100
 135 IF M$="D" OR M$="d" THEN GOSUB 7900:GOTO 100
 136 IF M$="DEBUG" OR M$="debug" THEN GOSUB 7900:GOTO 100
 140 IF M$="AYUDA" OR M$="ayuda" OR M$="Ayuda" THEN GOSUB 7700:GOTO 100
-150 IF M$="NUEVA" OR M$="nueva" OR M$="Nueva" THEN GOSUB 7800:GOTO 100
-152 IF M$="REINICIO" OR M$="reinicio" OR M$="Reinicio" THEN GOSUB 7800:GOTO 100
+150 IF M$="NUEVA" OR M$="nueva" OR M$="Nueva" THEN GOSUB 8400:GOTO 100
+152 IF M$="REINICIO" OR M$="reinicio" OR M$="Reinicio" THEN GOSUB 8400:GOTO 100
 160 GOSUB 1000:REM encode -> U$
 170 A$="http://"+P$+"/turn?msg="+U$+">RESP.TXT"
 180 IF LEN(A$)>240 THEN PEN 3:PRINT "Msg muy largo":PEN 1:GOTO 100
@@ -36,7 +37,7 @@
 205 TN%=TN%+1
 210 GOSUB 2000:REM leer RESP.TXT
 220 GOSUB 9100:REM borde segun S
-230 GOSUB 3000:REM mostrar LN$() (Typewriter M2, Tinta M3)
+230 GOSUB 3000:REM mostrar LN$() + separador
 240 GOSUB 9000:REM sonido AY (S:) o rechazo (E:1)
 250 GOTO 100
 1000 REM --- encode URL: espacio->+ resto especial->omitir ---
@@ -54,19 +55,23 @@
 1080 NEXT
 1090 IF LEN(U$)>80 THEN U$=LEFT$(U$,80)
 1100 RETURN
-1150 REM --- softkeys CPC: f1=INV f2=AYUDA (expansion -> INKEY$) ---
+1150 REM --- softkeys: f1 INV f2 AYUDA f3 SAVE1 f4 LOAD1 f5 NUEVA ---
 1160 KEY 1,"INV"+CHR$(13)
 1170 KEY 2,"AYUDA"+CHR$(13)
+1172 KEY 3,"SAVE 1"+CHR$(13)
+1174 KEY 4,"LOAD 1"+CHR$(13)
+1176 KEY 5,"NUEVA"+CHR$(13)
 1180 RETURN
 1200 REM --- editor entrada INKEY$ (no INPUT) ---
-1210 M$="":PEN 2:PRINT "> ";:PEN 1
+1210 M$="":HI%=0:PEN 2:PRINT "> ";:PEN 1
 1212 WHILE INKEY$<>"":WEND
 1220 K$=INKEY$:IF K$="" THEN 1220
 1230 C=ASC(K$)
 1240 IF C=13 THEN PRINT:RETURN
-1250 IF C=240 AND PREV$<>"" THEN GOSUB 1280:M$=PREV$:PRINT M$;:GOTO 1220
+1250 IF C=240 THEN GOSUB 1320:GOTO 1220
+1255 IF C=241 THEN GOSUB 1350:GOTO 1220
 1260 IF C=8 OR C=127 THEN GOSUB 1290:GOTO 1220
-1270 IF LEN(M$)<60 AND C>=32 AND C<=126 THEN M$=M$+K$:PRINT K$;
+1270 IF LEN(M$)<60 AND C>=32 AND C<=126 THEN HI%=0:M$=M$+K$:PRINT K$;
 1275 GOTO 1220
 1280 REM borra texto visible de la linea de entrada
 1282 IF LEN(M$)=0 THEN RETURN
@@ -76,6 +81,21 @@
 1292 IF LEN(M$)=0 THEN RETURN
 1294 M$=LEFT$(M$,LEN(M$)-1):PRINT CHR$(8);" ";CHR$(8);
 1296 RETURN
+1320 REM historial flecha ARR (mas antiguo)
+1322 IF HC%<1 THEN RETURN
+1324 HI%=HI%+1:IF HI%>HC% THEN HI%=HC%
+1326 GOSUB 1280:M$=H$(HI%):PRINT M$;
+1328 RETURN
+1350 REM historial flecha ABJ (mas reciente / vacio)
+1352 IF HI%<=1 THEN HI%=0:GOSUB 1280:M$="":RETURN
+1354 HI%=HI%-1:GOSUB 1280:M$=H$(HI%):PRINT M$;
+1356 RETURN
+1400 REM push M$ al historial (H$(1)=mas reciente)
+1405 IF M$="" THEN RETURN
+1410 IF HC%>0 THEN IF H$(1)=M$ THEN PREV$=M$:RETURN
+1415 FOR I%=5 TO 2 STEP -1:H$(I%)=H$(I%-1):NEXT
+1420 H$(1)=M$:PREV$=M$:IF HC%<5 THEN HC%=HC%+1
+1425 RETURN
 1500 REM --- animacion pensando (spinner) ---
 1510 PEN 2:PRINT "Pensando ";
 1520 SP$="/-\|"
@@ -152,17 +172,19 @@
 2790 IF J=0 THEN RETURN
 2800 P=J+1
 2810 GOTO 2730
-3000 REM --- imprime LN$() completo (M2 Typewriter, M3 Tinta) ---
+3000 REM --- imprime LN$() completo + separador de turno ---
 3010 IF E<>0 THEN PEN 3:PRINT "ERROR:":PEN 1
 3015 GOSUB 3200:REM seleccionar PEN segun S (M3)
-3020 IF NL%<1 THEN PRINT "Sin respuesta":PEN 1:RETURN
+3020 IF NL%<1 THEN PRINT "Sin respuesta":PEN 1:GOTO 3080
 3022 FAST%=0
 3024 WHILE INKEY$<>"":WEND
 3030 FOR I%=1 TO NL%
 3040 LLINE$=LN$(I%)
 3050 GOSUB 3300:REM typewriter LLINE$ (M2)
 3060 NEXT I%
-3070 PRINT:PEN 1:RETURN
+3070 PRINT
+3080 PEN 2:PRINT STRING$(40,"-"):PEN 1
+3090 RETURN
 3200 REM --- selecciona PEN segun S (M3) ---
 3210 IF S=0 OR S=2 THEN PEN 1:RETURN
 3220 IF S=1 OR S=4 THEN PEN 3:RETURN
@@ -247,18 +269,7 @@
 7140 PRINT "Amstrad CPC + placa M4 WiFi"
 7150 PRINT
 7160 PRINT "Escribe en espanol lo que haces."
-7170 PRINT "La IA en el PC narra la historia."
-7180 PRINT "El chip AY pone los efectos."
-7190 PRINT
-7200 PEN 2:PRINT "Comandos:":PEN 1
-7210 PRINT " AYUDA  - ver esta lista"
-7220 PRINT " NUEVA  - reiniciar partida"
-7225 PRINT " INV    - ver inventario"
-7226 PRINT " SAVE n / LOAD n / SAVES"
-7227 PRINT " ! o flecha ARR - repetir"
-7228 PRINT " f1=INV  f2=AYUDA  D=debug"
-7229 PRINT " tecla=saltar typewriter"
-7230 PRINT " QUIT   - guardar y salir"
+7170 GOSUB 8100:REM lista comandos (compartida)
 7235 PRINT
 7236 PRINT "Servidor: ";P$
 7240 PRINT
@@ -326,17 +337,12 @@
 7672 GOSUB 2500
 7675 GOSUB 3500
 7680 RETURN
-7700 REM --- ayuda in-game ---
+7700 REM --- ayuda in-game (misma lista que bienvenida) ---
 7710 PRINT
-7720 PEN 2:PRINT "SINTAXIA - ayuda":PEN 1
-7730 PRINT "Escribe acciones libres:"
-7740 PRINT " miro alrededor, voy al norte..."
-7745 PRINT " INV / inventario - objetos"
-7746 PRINT " SAVE 1..3  LOAD 1..3  SAVES"
-7747 PRINT " ! o flecha ARR - repetir"
-7748 PRINT " f1=INV  f2=AYUDA  D=debug"
-7749 PRINT " Una tecla salta el typewriter"
-7750 PRINT " AYUDA / NUEVA / REINICIO / QUIT"
+7720 PEN 2:PRINT "======= SINTAXIA - AYUDA =======":PEN 1
+7730 PRINT "Escribe acciones libres en espanol."
+7735 PRINT "Ej: miro alrededor, voy al norte"
+7740 GOSUB 8100:REM lista comandos (compartida)
 7760 PRINT "Servidor PC: ";P$
 7770 IF OK=1 THEN PRINT "Estado: activo" ELSE PRINT "Estado: dudoso"
 7780 PRINT
@@ -356,7 +362,8 @@
 7880 GOSUB 7650
 7885 GOSUB 9100
 7892 GOSUB 9000
-7894 TN%=0:PREV$=""
+7894 TN%=0:PREV$="":HC%=0:HI%=0
+7895 FOR I%=1 TO 5:H$(I%)="":NEXT
 7896 PRINT
 7898 PEN 2:PRINT "-- La aventura comienza --":PEN 1
 7899 PRINT:RETURN
@@ -368,6 +375,7 @@
 7950 PRINT "Turnos jugados: ";TN%
 7960 IF OK=1 THEN PRINT "Servidor: ACTIVO" ELSE PRINT "Servidor: INACTIVO"
 7970 PRINT "Ultimo comando: ";PREV$
+7975 PRINT "Historial cmds: ";HC%
 7980 PRINT
 7990 RETURN
 8000 REM --- error handler ---
@@ -378,6 +386,32 @@
 8040 OK=0
 8050 IF INTRO=1 THEN RESUME 7280
 8060 RESUME 100
+8100 REM --- lista comandos (bienvenida + AYUDA), max 40 cols ---
+8110 PRINT
+8115 PEN 2:PRINT "Comandos:":PEN 1
+8120 PRINT " AYUDA / f2   esta ayuda"
+8125 PRINT " INV / f1     inventario"
+8130 PRINT " SAVE n / f3  guardar (f3=slot1)"
+8135 PRINT " LOAD n / f4  cargar (f4=slot1)"
+8140 PRINT " SAVES        listar partidas"
+8145 PRINT " NUEVA / f5   reiniciar (pide S/N)"
+8150 PRINT " QUIT         salir (pide S/N)"
+8155 PRINT " ARR/ABJ / !  historial (hasta 5)"
+8160 PRINT " tecla        saltar typewriter"
+8165 PRINT " D            diagnostico"
+8170 RETURN
+8400 REM --- confirmar NUEVA / REINICIO ---
+8410 PEN 2:PRINT "Nueva partida? S/N":PEN 1
+8412 WHILE INKEY$<>"":WEND
+8415 K$=INKEY$:IF K$="" THEN 8415
+8420 IF K$="s" OR K$="S" THEN GOSUB 7800
+8425 RETURN
+8450 REM --- confirmar QUIT ---
+8460 PEN 2:PRINT "Salir y guardar? S/N":PEN 1
+8462 WHILE INKEY$<>"":WEND
+8465 K$=INKEY$:IF K$="" THEN 8465
+8470 IF K$="s" OR K$="S" THEN 8500
+8475 RETURN
 8500 REM --- QUIT: auto-guardar slot 1 y reset CPC ---
 8510 PEN 2:PRINT "Guardando estado en servidor...":PEN 1
 8520 A$="http://"+P$+"/turn?msg=save+1>RESP.TXT"
