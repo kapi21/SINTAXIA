@@ -39,3 +39,6 @@ server/settings.json
 # Accesos directos Windows
 *.lnk
 
+# Paquetes de distribucion generados
+dist/
+

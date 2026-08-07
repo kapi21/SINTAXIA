@@ -37,7 +37,6 @@ SINTAXIA/
     TITLE.SCR             # titulo MODE 1 (arte del proyecto)
     T2.SCR                # titulo MODE 2 (cabecera AMSDOS)
     TITLE2.SCR            # alias de T2.SCR
-    ver_title2.bas        # prueba del titulo MODE 2
     ascii/                # copia de los .bas
   server/                 # HTTP :8080 + panel /ui
   tools/
@@ -115,8 +114,6 @@ T2.SCR
 
 `T2.SCR` debe llevar **cabecera AMSDOS** (la genera `tools/make_title2_scr.py`). Sin ella, `LOAD` falla en la M4.  
 `TITLE.SCR` (MODE 1) es el arte del proyecto; no lo regeneres a ciegas.
-
-Prueba de titulo MODE 2: `RUN"ver_title2`
 
 ---
 

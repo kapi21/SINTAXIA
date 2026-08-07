@@ -25,8 +25,7 @@
 1. Limpieza: tokenizado/music/herramientas ConvImg → `archivo/` (sin borrar)  
 2. MODE 2: splash `T2.SCR` + fallback Dinamic; AMSDOS header (clave para LOAD en M4)  
 3. Mensajes de carga; AYUDA no borra pantalla  
-4. `ver_title2.bas` para probar titulo MODE 2  
-5. Docs: GUIA + MANUAL + este HANDOFF  
+4. Docs: GUIA + MANUAL + HANDOFF + README  
 
 ---
 
@@ -48,7 +47,6 @@ aventuramode2.bas
 TITLE.SCR          ← MODE 1 (usuario)
 T2.SCR             ← MODE 2 (AMSDOS)
 TITLE2.SCR         ← opcional, mismo contenido que T2
-ver_title2.bas     ← opcional
 HOST.TXT           ← opcional IP:puerto
 ```
 
@@ -59,7 +57,6 @@ HOST.TXT           ← opcional IP:puerto
 ## Cómo verificar
 
 - `RUN"sintaxia` → 1/2 → titulo → juego  
-- `RUN"ver_title2` → debe mostrar grafico MODE 2  
 - AYUDA: texto previo visible; lista completa sin “Pulsa ESPACIO” intermedio  
 
 ## Riesgos

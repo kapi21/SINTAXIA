@@ -130,7 +130,6 @@ SINTAXIA/
     TITLE.SCR          (MODE 1; arte manual)
     T2.SCR             (MODE 2; AMSDOS)
     TITLE2.SCR         (alias MODE 2)
-    ver_title2.bas     (prueba titulo MODE 2)
     ascii/             (copia de los .bas)
   tools/
     make_title_scr.py
@@ -215,7 +214,6 @@ Documentacion hardware: [M4Duke/m4hardware](https://github.com/M4Duke/m4hardware
    - `client/TITLE.SCR` — titulo grafico MODE 1 (arte del proyecto / manual; con cabecera AMSDOS)
    - `client/T2.SCR` — titulo grafico MODE 2 (**recomendado**; cabecera AMSDOS; 16512 bytes)
    - `client/TITLE2.SCR` — alias opcional del mismo dump MODE 2
-   - `client/ver_title2.bas` — opcional; prueba solo el titulo MODE 2
 2. En ambos clientes revisa `P$` (IP del PC). El de MODE 2 pide `?cols=80` al servidor.
 3. Si `RUN"sintaxia` / `RUN"aventura` **no** carga (ASCII sin cabecera AMSDOS del BASIC):
    - Abre un emulador (WinAPE, CPCemu…), carga el listado, `SAVE"sintaxia` (o `aventura`)
@@ -532,7 +530,7 @@ Si cargas un slot vacio: mensaje de error (`E:1`).
 | Siempre arranca en Ollama | Pulsa **Guardar** tras elegir proveedor; comprueba que existe `server/settings.json` |
 | Mock siempre igual | Es normal sin palabras clave; cambia a modo IA |
 | `RUN"aventura` no carga | Guarda desde emulador (`SAVE`) o sube por web UI M4; CRLF en ASCII |
-| `(Sin T2.SCR…)` / titulo MODE 2 ausente | `T2.SCR` en la misma carpeta; debe llevar cabecera AMSDOS (`make_title2_scr.py`); prueba `ver_title2.bas` |
+| `(Sin T2.SCR…)` / titulo MODE 2 ausente | `T2.SCR` en la misma carpeta; debe llevar cabecera AMSDOS (`make_title2_scr.py`) |
 | Sin titulo MODE 1 | Falta `TITLE.SCR` junto al `.bas`; el juego continua |
 | Load no restaura en CPC | El load afecta al **servidor**; el siguiente turno en CPC ya usa ese estado |
 | Panel no responde / congelado | Reinicia `server.py` |

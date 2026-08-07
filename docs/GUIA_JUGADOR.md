@@ -34,7 +34,6 @@ Hay **un launcher** y **dos clientes** en la microSD:
 | `aventuramode2.bas` | MODE 2 (80 cols) | Negro/verde; titulo `T2.SCR` (o `TITLE2.SCR`) |
 | `T2.SCR` | Titulo MODE 2 | Misma carpeta que el `.bas` (con cabecera AMSDOS) |
 | `TITLE.SCR` | Titulo MODE 1 | Misma carpeta que el `.bas` |
-| `ver_title2.bas` | Prueba | Solo para ver el titulo MODE 2 |
 
 ---
 
@@ -52,7 +51,7 @@ TITLE.SCR
 T2.SCR
 ```
 
-(Opcional: `TITLE2.SCR` = copia de `T2.SCR`; `HOST.TXT` con la IP del PC; `ver_title2.bas` para probar el titulo.)
+(Opcional: `TITLE2.SCR` = copia de `T2.SCR`; `HOST.TXT` con la IP del PC.)
 
 Si alguien te lo dejo preparado, salta a [Empezar a jugar](#empezar-a-jugar).
 
@@ -153,7 +152,7 @@ Tambien desde el panel del PC (slots).
 | Tarda en “Pensando…” | La IA puede tardar; mira el panel. |
 | El texto acaba en `...` | Limite de 12 lineas; normal a veces. |
 | No carga `RUN"sintaxia"` | Ficheros en la SD; ASCII con CRLF. |
-| `(Sin T2.SCR…)` / sin titulo MODE 2 | Copia `T2.SCR` (con cabecera) **junto** al `.bas`; prueba `RUN"ver_title2`. |
+| `(Sin T2.SCR…)` / sin titulo MODE 2 | Copia `T2.SCR` (con cabecera AMSDOS) **junto** al `.bas`. |
 | Sin titulo MODE 1 | Falta `TITLE.SCR` en la misma carpeta; el juego sigue. |
 
 ---
