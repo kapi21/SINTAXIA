@@ -32,10 +32,10 @@
 
 ## Pendiente
 
-1. **Actualizar `README.md` de GitHub** (siguiente paso acordado)  
-2. (Opcional) HTTPS PWA  
-3. (Largo) TCP / net ASM Z80  
-4. Retomar solo a proposito: `archivo/tokenizado_cpc/` o `archivo/presencia_ui/`  
+1. (Opcional) HTTPS PWA  
+2. (Largo) TCP / net ASM Z80  
+3. Retomar solo a proposito: `archivo/tokenizado_cpc/` o `archivo/presencia_ui/`  
+4. (Opcional) subir `imagen/splash2.png` / `splash3.png` al repo si se quieren como arte fuente publicado  
 
 ---
 
