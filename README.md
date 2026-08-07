@@ -10,14 +10,17 @@
   <em>IA + Amstrad CPC + M4 Board · narrativa, inventario y chip AY-3-8912</em>
 </p>
 
-**SINTAXIA** conecta un **Amstrad CPC real** (464/6128) a un LLM (Ollama, OpenAI, Claude, Gemini u API compatible) mediante la **[M4 Board](https://github.com/M4Duke/m4hardware)** (Wi‑Fi).
+**SINTAXIA** conecta un **Amstrad CPC real** (464/6128) a un LLM (Ollama, OpenAI, Claude, Gemini, OpenRouter u API compatible) mediante la **[M4 Board](https://github.com/M4Duke/m4hardware)** (Wi‑Fi).
 
-La IA genera la narrativa en lenguaje natural, el PC la empaqueta para el CPC (**40** u **80** columnas segun el cliente, ASCII) y el cliente en Locomotive BASIC muestra el texto y dispara efectos en el chip **AY‑3‑8912**.
+La IA genera la narrativa en lenguaje natural; el PC la empaqueta para el CPC (**40** u **80** columnas según el cliente, ASCII) y el cliente en Locomotive BASIC muestra el texto y dispara efectos en el chip **AY‑3‑8912**.
 
-**Clientes CPC:** `client/aventura.bas` (MODE 1) · `client/aventuramode2.bas` (MODE 2, 80 cols).
+| Documento | Para quién |
+|-----------|------------|
+| [docs/GUIA_JUGADOR.md](docs/GUIA_JUGADOR.md) | Jugar sin tecnicismos |
+| [docs/MANUAL.md](docs/MANUAL.md) | Instalación PC/CPC, panel, comandos |
+| [docs/CARGA.md](docs/CARGA.md) | Copia rápida a la microSD |
 
-**Manual completo (instalacion PC/CPC, panel IU, comandos):** [docs/MANUAL.md](docs/MANUAL.md)  
-**Guia sencilla para jugar (sin tecnicismos):** [docs/GUIA_JUGADOR.md](docs/GUIA_JUGADOR.md)
+**Clientes CPC:** launcher `sintaxia.bas` · `aventura.bas` (MODE 1) · `aventuramode2.bas` (MODE 2).
 
 ---
 
@@ -26,20 +29,24 @@ La IA genera la narrativa en lenguaje natural, el PC la empaqueta para el CPC (*
 ```text
 SINTAXIA/
   README.md
-  run_server.bat          # atajo Windows
+  run_server.bat
   client/
-    aventura.bas          # cliente MODE 1 (40 cols, M4)
-    aventuramode2.bas     # cliente MODE 2 (80 cols, negro/verde)
-    TITLE.SCR             # pantalla de titulo MODE 1 (opcional)
-  server/
-    server.py             # HTTP :8080
-    ai_adventure.py       # LLM + historial
-    protocol.py           # paquete T:/S:/E: (+ ?cols=)
-    cpc_text.py           # ASCII CPC + wrap
-    prompts/master.txt
+    sintaxia.bas          # launcher MODE 1 / 2
+    aventura.bas          # MODE 1 (40 cols)
+    aventuramode2.bas     # MODE 2 (80 cols, negro/verde)
+    TITLE.SCR             # titulo MODE 1 (arte del proyecto)
+    T2.SCR                # titulo MODE 2 (cabecera AMSDOS)
+    TITLE2.SCR            # alias de T2.SCR
+    ver_title2.bas        # prueba del titulo MODE 2
+    ascii/                # copia de los .bas
+  server/                 # HTTP :8080 + panel /ui
+  tools/
+    make_title_scr.py     # genera TITLE_gen.SCR (no pisa TITLE.SCR)
+    make_title2_scr.py    # genera T2.SCR + TITLE2.SCR
+    amsdos_header.py      # cabecera para LOAD en M4
   tests/
-  docs/                   # notas de carga / planes
-  archivo/                # material local M4 (no publicado)
+  docs/
+  imagen/                 # arte fuente (PNG)
 ```
 
 ---
@@ -49,22 +56,69 @@ SINTAXIA/
 ```text
 Amstrad CPC + M4          PC (servidor)
 ─────────────────         ──────────────────────────
-client/aventura.bas       server/server.py :8080
-  INPUT  ──HTTP GET──►    Ollama / mock
+client/*.bas              server/server.py :8080
+  INPUT  ──HTTP GET──►    Ollama / API / mock
   |HTTPGET ◄──────────    paquete T: / S: / E:
   PRINT + SOUND AY
 ```
 
-| Pieza | Rol |
-|--------|-----|
-| `client/aventura.bas` | Cliente CPC (MODE 1, HTTP M4, parseo, SOUND, titulo) |
-| `client/TITLE.SCR` | Splash grafico (generar con `python tools/make_title_scr.py`) |
-| `tools/make_title_scr.py` | Convierte PNG → TITLE.SCR |
-| `server/server.py` | HTTP en puerto 8080 |
-| `server/ai_adventure.py` | LLM (Ollama/OpenAI/Claude/Gemini/compat) + historial + reempaquetado |
-| `server/llm_providers.py` | Defaults y mapeo de mensajes por proveedor |
-| `server/protocol.py` / `cpc_text.py` | Contrato de paquete y texto CPC-safe |
-| `server/prompts/master.txt` | System prompt del Master |
+---
+
+## Requisitos
+
+- PC con Python 3.10+
+- [Ollama](https://ollama.com/) (p. ej. `llama3.1:8b`), otra API, o `--mock`
+- Amstrad CPC + M4 Board en la misma LAN
+- Firewall: TCP **8080** entrante
+
+| Nodo (ejemplo) | IP |
+|----------------|-----|
+| PC servidor | `192.168.1.4` |
+| M4 / CPC | `192.168.1.128` |
+
+Ajusta `P$` en los `.bas` o usa **F7** / `HOST.TXT` en la SD.
+
+---
+
+## Arranque del servidor (PC)
+
+```bat
+run_server.bat
+run_server.bat --mock
+run_server.bat --model llama3.1:8b
+```
+
+**Panel:** [http://127.0.0.1:8080/ui](http://127.0.0.1:8080/ui) — proveedor, modelo, prompt, slots de partida, último paquete `T:/S:/E:`.
+
+```bash
+curl http://127.0.0.1:8080/ping
+curl "http://127.0.0.1:8080/turn?msg=miro+alrededor"
+```
+
+---
+
+## Cliente en el CPC (microSD)
+
+Copia **en la misma carpeta** de la SD (sin subcarpeta `client/`):
+
+```text
+sintaxia.bas
+aventura.bas
+aventuramode2.bas
+TITLE.SCR
+T2.SCR
+```
+
+1. `|NETSTAT` — red OK  
+2. `RUN"sintaxia` → **1** (MODE 1) o **2** (MODE 2)  
+3. Titulo + **ESPACIO** → servidor → **Situacion** → escribe en español  
+
+`T2.SCR` debe llevar **cabecera AMSDOS** (la genera `tools/make_title2_scr.py`). Sin ella, `LOAD` falla en la M4.  
+`TITLE.SCR` (MODE 1) es el arte del proyecto; no lo regeneres a ciegas.
+
+Prueba de titulo MODE 2: `RUN"ver_title2`
+
+---
 
 ## Protocolo (cuerpo HTTP)
 
@@ -74,81 +128,10 @@ S:2
 E:0
 ```
 
-- `T:` descripción; líneas ≤40 chars, separadas por `|` (máx. 12; puede ir en varias filas `T:`)
-- `S:` sonido `0`–`5` (neutro, peligro, ambiente, objeto, combate, victoria)
+- `T:` hasta **12** lineas; ancho 40 u 80 (`?cols=`)
+- `S:` `0`–`5` (neutro, peligro, ambiente, objeto, combate, victoria)
 - `E:` `0` ok / `1` error  
-- Fin de línea: **CRLF** (requerido por `LINE INPUT` del CPC)
-
----
-
-## Requisitos
-
-- PC con Python 3.10+
-- [Ollama](https://ollama.com/) (recomendado: `llama3.1:8b`) o modo `--mock`
-- Amstrad CPC + M4 Board en la misma LAN
-- Firewall Windows: permitir TCP **8080** entrante
-
-IPs de ejemplo usadas en el PoC:
-
-| Nodo | IP |
-|------|-----|
-| PC servidor | `192.168.1.4` |
-| M4 / CPC | `192.168.1.128` |
-
-Ajusta la IP del PC en `client/aventura.bas` (línea del `|HTTPGET`) si cambia.
-
----
-
-## Arranque del servidor (PC)
-
-```bash
-# Windows
-run_server.bat
-run_server.bat --mock
-run_server.bat --model llama3.1:8b
-
-# o manualmente
-cd server
-python server.py
-python server.py --mock
-```
-
-**Panel web:** [http://127.0.0.1:8080/ui](http://127.0.0.1:8080/ui)  
-Ahí puedes elegir mock / Ollama / OpenAI / Claude / Gemini / Compatible, modelo, temperatura, system prompt, ver el último paquete `T:/S:/E:`, inventario/estado, **guardar/cargar slots 1–3** y reiniciar partida. Al cambiar de proveedor se rellenan URL y modelo típicos; pasa el ratón por cada control para ver ayuda.
-
-Prueba rápida:
-
-```bash
-curl http://127.0.0.1:8080/ping
-curl "http://127.0.0.1:8080/turn?msg=miro+alrededor"
-curl "http://127.0.0.1:8080/turn?msg=SAVE+1"
-curl "http://127.0.0.1:8080/turn?msg=LOAD+1"
-curl http://127.0.0.1:8080/reset
-```
-
-Más detalle: **[docs/MANUAL.md](docs/MANUAL.md)** (manual de usuario) y `docs/CARGA.md` (carga rapida en SD).
-
----
-
-## Cliente en el CPC
-
-1. Copia a la microSD de la M4:
-   - `client/aventura.bas` + `TITLE.SCR` (MODE 1), y/o
-   - `client/aventuramode2.bas` (MODE 2; CRLF)
-2. Ajusta `P$` (IP del PC) en el `.bas` que uses
-3. En el CPC: `|NETSTAT` y comprueba IP
-4. `RUN"aventura` o `RUN"aventuramode2`
-5. Escribe acciones en español natural (`miro alrededor`, `voy al norte`, …).  
-   Comandos: `INV`, `SAVE 1`–`3`, `LOAD 1`–`3`, `SAVES`, `NUEVA`, `AYUDA`, `MUTE`/`AUDIO`, `QUIT`.
-
-Prueba manual de red desde BASIC:
-
-```basic
-a$="@192.168.1.4:8080/ping>PING.TXT"
-|HTTPGET,@a$
-OPENIN "PING.TXT"
-LINE INPUT #9,a$:PRINT a$:CLOSEIN
-```
+- Fin de linea: **CRLF**
 
 ---
 
@@ -157,36 +140,36 @@ LINE INPUT #9,a$:PRINT a$:CLOSEIN
 | Código | Efecto |
 |--------|--------|
 | 0 | Silencio |
-| 1 | Peligro: grave + fade ENV/ENT |
-| 2 | Ambiente: eco suave 2 canales |
-| 3 | Objeto: arpegio con envolvente |
-| 4 | Combate: golpe + ruido AY |
-| 5 | Victoria: fanfarria ascendente |
+| 1 | Peligro |
+| 2 | Ambiente |
+| 3 | Objeto |
+| 4 | Combate |
+| 5 | Victoria |
 
 ---
 
 ## Tests
 
 ```bash
-cd server
-python -c "from protocol import build_packet, parse_packet; print(parse_packet(build_packet(['Hola'],2)))"
+cd tests
+python -m pytest
 ```
 
 ---
 
 ## Roadmap breve
 
-- Pulir coherencia LLM con I/L/F
-- Más atmósfera en BASIC
-- (Largo) cliente TCP Z80 / `C_NET*`
+- Actualizar atmosférica / coherencia LLM
+- (Opcional) HTTPS PWA
+- (Largo) cliente TCP Z80
 
 ---
 
-## Créditos / hardware
+## Creditos / hardware
 
 - M4 Board — [M4Duke/m4hardware](https://github.com/M4Duke/m4hardware)
-- Inspirado en la tradición de aventuras conversacionales españolas de los 80
+- Inspirado en las aventuras conversacionales españolas de los 80
 
 ## Licencia
 
-[MIT License](LICENSE) — ver fichero `LICENSE` en la raíz del repositorio.
+[MIT License](LICENSE)
