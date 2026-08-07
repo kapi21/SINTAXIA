@@ -1,20 +1,28 @@
-"""Genera client/TITLE.SCR (MODE 1) desde server/web/hero.png.
+"""Genera un TITLE.SCR (MODE 1) desde PNG — NO pisa el titulo oficial por defecto.
+
+El fichero de trabajo en SD es client/TITLE.SCR (puede ser uno hecho a mano).
+Este script escribe en client/TITLE_gen.SCR salvo que pases --force.
 
 Uso (desde la raiz del repo):
   python tools/make_title_scr.py
+  python tools/make_title_scr.py --force   # sobrescribe client/TITLE.SCR
 
 Requiere Pillow.
 """
 
 from __future__ import annotations
 
+import argparse
 from pathlib import Path
 
 from PIL import Image, ImageDraw
 
+from amsdos_header import with_amsdos_header
+
 ROOT = Path(__file__).resolve().parents[1]
 SRC = ROOT / "server" / "web" / "hero.png"
 OUT_SCR = ROOT / "client" / "TITLE.SCR"
+OUT_GEN = ROOT / "client" / "TITLE_gen.SCR"
 OUT_PREVIEW = ROOT / "client" / "title_preview.png"
 
 # Recorte: puerta + heroe (el hero incluye UI; luego se limpian franjas)
@@ -122,6 +130,15 @@ def rows_to_preview(rows: list[list[int]]) -> Image.Image:
 
 
 def main() -> None:
+    ap = argparse.ArgumentParser(description="Genera TITLE MODE 1 (no pisa TITLE.SCR sin --force)")
+    ap.add_argument(
+        "--force",
+        action="store_true",
+        help="Sobrescribe client/TITLE.SCR (por defecto solo TITLE_gen.SCR)",
+    )
+    args = ap.parse_args()
+    out_path = OUT_SCR if args.force else OUT_GEN
+
     # Preferir arte de imagen/; splash.scr (.SCR con cabecera ~32KB) NO es
     # un dump MODE 1 seguro para LOAD,&C000 — se genera desde PNG.
     candidates = [
@@ -144,10 +161,13 @@ def main() -> None:
     fw = len(foot) * 6 - 1
     blit_text(rows, foot, max(0, (W - fw) // 2), H - 16, ink=1, scale=1)
     scr = rows_to_scr(rows)
-    OUT_SCR.parent.mkdir(parents=True, exist_ok=True)
-    OUT_SCR.write_bytes(scr)
+    out = with_amsdos_header(scr, "TITLE.SCR", load_addr=0xC000)
+    out_path.parent.mkdir(parents=True, exist_ok=True)
+    out_path.write_bytes(out)
     rows_to_preview(rows).save(OUT_PREVIEW)
-    print(f"OK {OUT_SCR} ({len(scr)} bytes)")
+    print(f"OK {out_path} ({len(out)} bytes = 128 cabecera AMSDOS + {len(scr)} pantalla)")
+    if not args.force:
+        print("Nota: client/TITLE.SCR no se ha tocado (titulo manual). Usa --force para sobrescribir.")
     print(f"Preview {OUT_PREVIEW}")
 
 

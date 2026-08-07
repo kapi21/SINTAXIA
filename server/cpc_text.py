@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import re
 import unicodedata
+from collections.abc import Iterable
 
 # Sustituciones explicitas antes de strip de acentos (escapes para encoding Windows)
 _REPLACEMENTS = {
@@ -24,9 +25,23 @@ _REPLACEMENTS = {
     "\u2026": "...",
     "\u20ac": "E",
     "\u00b0": "o",
+    # Puntuacion tipografica / fullwidth que el LLM mete a menudo
+    "\uff0c": ",",  # ，
+    "\uff0e": ".",  # ．
+    "\u3002": ".",  # 。
+    "\uff01": "!",  # ！
+    "\uff1f": "?",  # ？
+    "\uff1b": ";",  # ；
+    "\uff1a": ":",  # ：
+    "\u00b7": ".",  # ·
+    "\u2022": "-",  # •
+    "\u201a": ",",  # ‚
+    "\u2032": "'",
+    "\u2033": '"',
 }
 
 _CPC_OK = re.compile(r"[^ -~]")
+_SENTENCE_END = frozenset(".!?;:")
 
 
 def normalize_cpc(text: str) -> str:
@@ -41,6 +56,31 @@ def normalize_cpc(text: str) -> str:
     cleaned = re.sub(r"[ \t]+", " ", cleaned)
     cleaned = re.sub(r"\n+", " ", cleaned)
     return cleaned.strip()
+
+
+def join_narrative_segments(parts: Iterable[str]) -> str:
+    """Une segmentos T: restaurando '.' si el modelo uso '|' como fin de frase.
+
+    Continuaciones en minuscula (wrap a mitad de frase) se unen con espacio.
+    Si el siguiente segmento empieza en mayuscula y el anterior no termina
+    en puntuacion, se inserta '. '.
+    """
+    result = ""
+    for raw in parts:
+        p = normalize_cpc(str(raw)).strip() if raw is not None else ""
+        if not p:
+            continue
+        if not result:
+            result = p
+            continue
+        prev = result[-1]
+        if prev in _SENTENCE_END:
+            result += " " + p
+        elif p[0].isupper():
+            result += ". " + p
+        else:
+            result += " " + p
+    return result
 
 
 def wrap_lines(text: str, width: int = 40, max_lines: int = 8) -> list[str]:

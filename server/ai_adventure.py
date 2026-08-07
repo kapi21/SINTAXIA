@@ -10,7 +10,7 @@ import urllib.request
 from pathlib import Path
 from typing import Any
 
-from cpc_text import normalize_cpc, wrap_lines
+from cpc_text import join_narrative_segments, normalize_cpc, wrap_lines
 from game_state import GameState
 from llm_providers import (
     ANTHROPIC_VERSION,
@@ -586,7 +586,7 @@ def repack_llm_text(raw: str, *, width: int | None = None) -> str:
     cleaned_parts = [x for x in cleaned_parts if x]
     if sound == 0:
         sound = infer_sound(" ".join(cleaned_parts))
-    joined = " ".join(cleaned_parts)
+    joined = join_narrative_segments(cleaned_parts)
     joined = scrub_narrative_leaks(joined)
     lines = [L for L in wrap_lines(joined, width=w, max_lines=CPC_MAX_LINES) if L.strip()]
     if not lines:

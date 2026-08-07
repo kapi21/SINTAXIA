@@ -22,19 +22,22 @@ Invoke-WebRequest -Uri "http://192.168.1.4:8080/turn?msg=miro+la+cueva" -UseBasi
    - `client/sintaxia.bas` (launcher)
    - `client/aventura.bas`
    - `client/aventuramode2.bas` (si usas MODE 2)
-   - `client/TITLE.SCR` (pantalla de titulo; opcional pero recomendado)
-2. Si `RUN"sintaxia` no carga (fichero ASCII sin cabecera AMSDOS):
-   - Abre WinAPE/CPCemu, pega el listado, `SAVE"sintaxia`
-   - Copia el `.bas` generado a la SD
-   - O teclea el listado en el CPC y `SAVE"sintaxia`
+   - `client/TITLE.SCR` (titulo MODE 1; opcional pero recomendado)
+   - `client/T2.SCR` (titulo MODE 2; **misma carpeta** que `aventuramode2.bas`)
+   - `client/TITLE2.SCR` (alias opcional; el cliente tambien lo prueba)
+2. Formato: **ASCII** (Locomotive). Misma copia en `client/ascii/` por si editas aparte.
+   - Si `RUN"sintaxia` no carga en algun entorno raro: abre WinAPE/CPCemu, carga el listado y `SAVE"sintaxia` (tokenizado nativo del CPC).
+   - El tokenizador casero esta **aparcado** en `archivo/tokenizado_cpc/` (no usar en SD).
 3. Alternativa M4 Web UI: `http://192.168.1.128` → subir fichero.
 
-### Regenerar TITLE.SCR (PC)
-Si cambia el arte de origen:
+### Regenerar TITLE.SCR / T2.SCR (PC)
 ```powershell
 python tools/make_title_scr.py
+python tools/make_title2_scr.py
 ```
-Genera `TITLE.SCR` y preview PNG.
+Genera dumps con **cabecera AMSDOS** (necesarios para `LOAD` en la M4).  
+En la SD van en la **misma carpeta** que el `.bas` (nombres `TITLE.SCR` / `T2.SCR`).  
+La ruta `client/` es solo del PC al copiar; el BASIC hace `LOAD"T2.SCR",&C000` **sin** carpeta.
 
 ## En el CPC
 ```

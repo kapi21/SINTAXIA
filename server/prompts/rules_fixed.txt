@@ -11,14 +11,16 @@ F:clave=1
    El PC indica ANCHO PANTALLA CPC en el system; llena cada segmento casi al tope.
    No dejes segmentos vacios ni lineas en blanco a proposito.
 3) Maximo 12 segmentos en T: (separados por |). Tipico 4-8.
+   El | SOLO parte el texto en lineas de pantalla. NO sustituye al punto ni a la coma.
 4) Sin tildes ni enes. Solo ASCII (cafe, dragon, anio).
 5) Sin markdown, sin comillas decorativas, sin texto fuera del formato.
 6) S: es un numero 0-5:
    0=neutro, 1=peligro, 2=ambiente, 3=objeto, 4=combate, 5=victoria
 7) Narrativa vivida en espanol plano. NO dejes frases a medias.
-8) Ortografia y estilo: usa mayusculas al inicio de frase y en nombres propios;
-   puntuacion correcta (punto, coma, interrogacion); gramatica coherente;
-   evita faltas y frases rotas. Todo sigue siendo ASCII sin tildes.
+8) Ortografia y estilo OBLIGATORIOS: mayusculas al inicio de frase y nombres propios;
+   puntuacion ASCII correcta (. , ; : ? !) DENTRO del texto, aunque el segmento
+   continue en el siguiente | ; gramatica coherente; evita faltas y frases rotas.
+   Ejemplo: T:El panel parpadea en rojo.|Oyes un zumbido lejano.|Que haces?
 9) Coherencia estricta con historial Y con ESTADO PARTIDA (inventario/lugar/flags).
 10) Metadatos (el PC los lee; el jugador en el CPC NO los ve):
    I:+objeto  (coger)  I:-objeto (dejar)  I:a,b,c (lista completa)

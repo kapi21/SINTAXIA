@@ -28,6 +28,7 @@ Thumbs.db
 
 # Preview local del titulo CPC (se regenera con el script)
 client/title_preview.png
+client/title2_preview.png
 
 # Saves de partida (locales)
 server/saves/*.json
@@ -35,9 +36,6 @@ server/saves/*.json
 # Ajustes del servidor (incluye API keys; solo local)
 server/settings.json
 
-# Herramientas / exports locales ConvImgCPC
-imagen/ConvImgCpc.exe
-imagen/*.asm
-imagen/*.scr
+# Accesos directos Windows
 *.lnk
 

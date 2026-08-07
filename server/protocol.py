@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from typing import TypedDict
 
-from cpc_text import normalize_cpc, wrap_lines
+from cpc_text import join_narrative_segments, normalize_cpc, wrap_lines
 
 # MODE 1 = 40 cols. MODE 2 = 80 cols (via ?cols=80).
 # CPC LINE INPUT max ~255 por fila.
@@ -45,7 +45,7 @@ def reflow_lines(
     parts = [p for p in parts if p]
     if not parts:
         return []
-    joined = " ".join(parts)
+    joined = join_narrative_segments(parts)
     return [L for L in wrap_lines(joined, width=w, max_lines=limit) if L.strip()]
 
 
@@ -92,8 +92,9 @@ def build_packet(
     cleaned = [x for x in cleaned if x]
 
     if reflow and cleaned:
-        # Contar si el texto cabria en mas lineas que el tope (para ellipsis)
-        full = wrap_lines(" ".join(cleaned), width=w, max_lines=limit + 50)
+        # Une restaurando puntos si el LLM uso | como fin de frase
+        joined = join_narrative_segments(cleaned)
+        full = wrap_lines(joined, width=w, max_lines=limit + 50)
         safe_lines = full[:limit]
         if len(full) > limit:
             truncated = True

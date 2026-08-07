@@ -5,7 +5,7 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "server"))
 
-from cpc_text import normalize_cpc, wrap_lines
+from cpc_text import join_narrative_segments, normalize_cpc, wrap_lines
 
 
 def test_normalize_removes_accents():
@@ -16,6 +16,33 @@ def test_normalize_removes_accents():
 def test_normalize_strips_non_ascii():
     assert "\u20ac" not in normalize_cpc("precio 10\u20ac")
     assert normalize_cpc("caf\u00e9") == "cafe"
+
+
+def test_normalize_keeps_ascii_punctuation():
+    assert normalize_cpc("Hola, mundo. Que tal?") == "Hola, mundo. Que tal?"
+
+
+def test_normalize_fullwidth_punctuation():
+    assert normalize_cpc("Hola\uff0c mundo\uff0e") == "Hola, mundo."
+
+
+def test_join_restores_period_at_segment_break():
+    text = join_narrative_segments(
+        ["El panel parpadea en rojo", "Oyes un zumbido lejano", "Que haces?"]
+    )
+    assert text == "El panel parpadea en rojo. Oyes un zumbido lejano. Que haces?"
+
+
+def test_join_keeps_mid_sentence_wrap():
+    text = join_narrative_segments(
+        ["Puedes sentir la ausencia del flujo", "vital en los conductos."]
+    )
+    assert text == "Puedes sentir la ausencia del flujo vital en los conductos."
+
+
+def test_join_preserves_existing_period():
+    text = join_narrative_segments(["Frase una.", "Frase dos."])
+    assert text == "Frase una. Frase dos."
 
 
 def test_wrap_40_cols():

@@ -2,7 +2,7 @@
 
 **Aventura conversacional con IA para Amstrad CPC + M4 Board**
 
-Versión del manual: 2026-08-03 v5  
+Versión del manual: 2026-08-07 v6  
 Repositorio: https://github.com/kapi21/SINTAXIA
 
 ---
@@ -91,7 +91,7 @@ Todo ocurre en la **misma Wi‑Fi** (LAN). No hace falta Internet si usas Ollama
 |----------|---------|
 | Maquina | CPC 464 / 664 / 6128 / Plus |
 | Expansion | **M4 Board** con Wi‑Fi configurada |
-| microSD | FAT32, con `sintaxia.bas` + `aventura.bas` y/o `aventuramode2.bas` |
+| microSD | FAT32; `.bas` + `TITLE.SCR` / `T2.SCR` en la **misma carpeta** (sin subcarpeta `client/` en la tarjeta) |
 | Firmware M4 | Preferible reciente (comandos `|HTTPGET`, `|NETSTAT`) |
 
 ### Red de ejemplo (PoC)
@@ -123,18 +123,29 @@ Estructura relevante:
 ```text
 SINTAXIA/
   run_server.bat
-  client/sintaxia.bas
-  client/aventura.bas
-  client/aventuramode2.bas
-  client/TITLE.SCR
+  client/
+    sintaxia.bas
+    aventura.bas
+    aventuramode2.bas
+    TITLE.SCR          (MODE 1; arte manual)
+    T2.SCR             (MODE 2; AMSDOS)
+    TITLE2.SCR         (alias MODE 2)
+    ver_title2.bas     (prueba titulo MODE 2)
+    ascii/             (copia de los .bas)
+  tools/
+    make_title_scr.py
+    make_title2_scr.py
+    amsdos_header.py
   server/
     server.py
     web/ui.html
     prompts/master.txt
-    saves/          (partidas; se crean al guardar)
+    saves/
   docs/
-    MANUAL.md       (este documento)
+    MANUAL.md
+    GUIA_JUGADOR.md
     CARGA.md
+    SINTAXIA_HANDOFF.md
 ```
 
 ### 4.2 Python
@@ -197,18 +208,21 @@ Documentacion hardware: [M4Duke/m4hardware](https://github.com/M4Duke/m4hardware
 
 ### 5.2 Copiar el cliente BASIC
 
-1. En el PC, copia a la microSD de la M4:
+1. En el PC, copia a la microSD de la M4 (**todos en el mismo directorio**; la ruta `client/` existe solo en el PC):
    - `client/sintaxia.bas` — **launcher** (entrada recomendada: elige MODE 1 o 2)
-   - `client/aventura.bas` — cliente **MODE 1** (40 columnas; oficial)
+   - `client/aventura.bas` — cliente **MODE 1** (40 columnas)
    - `client/aventuramode2.bas` — cliente **MODE 2** (80 columnas; negro/verde)
-   - `client/TITLE.SCR` (opcional; solo con MODE 1)
+   - `client/TITLE.SCR` — titulo grafico MODE 1 (arte del proyecto / manual; con cabecera AMSDOS)
+   - `client/T2.SCR` — titulo grafico MODE 2 (**recomendado**; cabecera AMSDOS; 16512 bytes)
+   - `client/TITLE2.SCR` — alias opcional del mismo dump MODE 2
+   - `client/ver_title2.bas` — opcional; prueba solo el titulo MODE 2
 2. En ambos clientes revisa `P$` (IP del PC). El de MODE 2 pide `?cols=80` al servidor.
-3. Si `RUN"sintaxia` / `RUN"aventura` **no** carga (ASCII sin cabecera AMSDOS):
-   - Abre un emulador (WinAPE, CPCemu…), pega el listado, `SAVE"sintaxia` (o `aventura`)
-   - Copia el `.bas` tokenizado a la SD
+3. Si `RUN"sintaxia` / `RUN"aventura` **no** carga (ASCII sin cabecera AMSDOS del BASIC):
+   - Abre un emulador (WinAPE, CPCemu…), carga el listado, `SAVE"sintaxia` (o `aventura`)
    - Alternativa: teclear en el CPC y `SAVE"…`
    - Alternativa: subir por la web UI de la M4
-   - Igual para `aventuramode2` (el fichero **debe** ir en CRLF)
+   - `aventuramode2.bas` debe guardarse con **CRLF**
+4. **Importante SCR:** sin cabecera AMSDOS, `LOAD"T2.SCR",&C000` falla en la M4. Regenerar MODE 2 con `python tools/make_title2_scr.py`. El titulo MODE 1 (`TITLE.SCR`) es **arte controlado a mano**; no lo pises con el generador salvo `--force` (por defecto escribe `TITLE_gen.SCR`).
 
 ### 5.3 Ajustar la IP del PC en el BASIC
 
@@ -339,18 +353,23 @@ No confundir con las **partidas** (`server/saves/slotN.json`): ahi va el **mundo
 
 ### 8.1 Pantalla de introduccion
 
-Al hacer `RUN"sintaxia` aparece el menu de modo; con **1** arranca MODE 1 (`aventura.bas`):
+Al hacer `RUN"sintaxia` aparece el menu de modo. Al pulsar **1** o **2** muestra **Seleccionado Modo…** e **Iniciando la aventura…** mientras carga el cliente.
 
-(Con `RUN"aventura` directo es el mismo flujo MODE 1.)
+Con **1** / `RUN"aventura` (MODE 1):
 
-1. Paleta MODE 1 (borde negro).
-2. (Opcional) Splash grafico `TITLE.SCR` con **tema AY de intro** (~2 min, bucle hasta ESPACIO).
-3. Pantalla de ayuda (comandos + IP `P$`) → **ESPACIO**.
-4. **Comprobando servidor…** (`/ping`).
-5. Si OK: **SERVIDOR ACTIVO** → **Situacion** (`/intro`).
-6. Si falla: `R` reintenta, **espacio** continua sin garantia de red.
+1. Mensaje **Iniciando la aventura...**
+2. Paleta MODE 1 (borde negro).
+3. (Opcional) Splash grafico `TITLE.SCR` con **tema AY de intro** (~2 min, bucle hasta ESPACIO).
+4. Pantalla de ayuda corta (comandos + IP `P$`) → **ESPACIO**.
+5. **Comprobando servidor…** (`/ping`).
+6. Si OK: **SERVIDOR ACTIVO** → **Situacion** (`/intro`).
+7. Si falla: `R` reintenta, **espacio** continua sin garantia de red.
 
-`RUN"aventuramode2` es el mismo flujo en **MODE 2** (80 cols, negro/verde, splash tipografico; sin `TITLE.SCR`). Las URLs llevan `?cols=80` para que el PC empaquete a ancho completo.
+`RUN"aventuramode2` (MODE 2, 80 cols, negro/verde):
+
+1. **Iniciando la aventura...**
+2. Splash `T2.SCR` (o `TITLE2.SCR`) si estan en la SD; si no, cartel tipografico Dinamic.
+3. Misma musica / **ESPACIO** y el resto del flujo. URLs con `?cols=80`.
 
 Nota CPC: al editar los `.bas` en ASCII, evita numeros de linea **>32767**. `aventuramode2.bas` debe guardarse con **CRLF**.
 
@@ -364,7 +383,7 @@ Pensando /-\|
 >
 ```
 
-La entrada usa un **editor por teclado** (no el `INPUT` clasico): puedes borrar con DEL/backspace. Softkeys: **F1**=`INV`, **F2**=`AYUDA`, **F3**=`SAVE 1`, **F4**=`LOAD 1`, **F5**=`NUEVA`, **F6**=`SONIDO` (ON/OFF), **F7**=`IP`, **F8**=`QUIT`. **Flechas** = historial (5). `MUTE` silencia. IP del PC: linea `P$` en el `.bas`, o fichero **`HOST.TXT`** en la SD (una linea `IP:puerto`); **F7** edita y guarda ese fichero.
+La entrada usa un **editor por teclado** (no el `INPUT` clasico): puedes borrar con DEL/backspace. Softkeys: **F1**=`INV`, **F2**=`AYUDA`, **F3**=`SAVE 1`, **F4**=`LOAD 1`, **F5**=`NUEVA`, **F6**=`SONIDO` (ON/OFF), **F7**=`IP`, **F8**=`QUIT`, **F9**=`RAPIDO` (toggle texto rapido). **Flechas** = historial (5). `MUTE` silencia. `LENTO` fuerza typewriter. IP del PC: linea `P$` en el `.bas`, o fichero **`HOST.TXT`** en la SD (una linea `IP:puerto`); **F7** edita y guarda ese fichero.
 
 Escribes lo que haces **en espanol natural**. No hace falta sintaxis de parser clasico, aunque frases claras ayudan a la IA.
 
@@ -377,14 +396,14 @@ Limites practicos:
 
 - **Typewriter**: texto caracter a caracter + clic AY; **cualquier tecla** acelera.
 - **Cursor de prompt**: bloque `CHR$(143)` parpadeante.
-- **Borde**: siempre **negro** (sin microflash de color).
-- **Clientes**: launcher `sintaxia.bas`; `aventura.bas` MODE 1 (40 cols + `TITLE.SCR`); `aventuramode2.bas` MODE 2 (80 cols, negro/verde).
-- **Ancho dinamico**: el servidor acepta `?cols=40|80` y hace **reflow** denso (sin segmentos vacios).
+- **Borde**: siempre **negro**.
+- **Clientes**: `sintaxia.bas`; `aventura.bas` + `TITLE.SCR`; `aventuramode2.bas` + `T2.SCR`.
+- **AYUDA / F2**: imprime debajo del texto actual (**sin CLS**); lista completa **sin** pausa “Pulsa ESPACIO”.
+- **Ancho dinamico**: `?cols=40|80` + reflow en el PC.
 - **Animacion Pensando...**: spinner `/-\|` antes del HTTP.
-- **Tema de titulo** (~2 min, ambiente La menor, bucle hasta ESPACIO) + pedal en ayuda.
+- **Tema de titulo** (~2 min) + pedal en ayuda.
 - **SOUND** con envolventes `ENV`/`ENT` segun `S:` / `E:1`.
-- **NUEVA/f5**: `/reset` en silencio y luego intro (sin mensaje Lugar/Llevas intermedio).
-- Viñetas `PLOT`/`DRAW`: **desactivadas**.
+- Viñetas `PLOT`/`DRAW` y cabecera fija in-game: **no activas** (experimento en `archivo/presencia_ui/`).
 
 ---
 
@@ -396,7 +415,7 @@ Todo se escribe en el prompt `>` (mayusculas/minusculas toleradas en la mayoria)
 
 | Comando | Accion |
 |---------|--------|
-| `AYUDA` / **F2** | Muestra ayuda e IP del servidor (`P$`). |
+| `AYUDA` / **F2** | Lista de comandos debajo del texto (sin CLS ni pausa de pagina). |
 | `NUEVA` / `REINICIO` / **F5** | Pide **S/N**; si S: `/reset` + `/intro`. |
 | `INV` / `inventario` / `objetos` / **F1** | Lista lo que llevas (sin llamar a la IA). |
 | `SAVE 1` … `SAVE 3` / **F3**=`SAVE 1` | Guarda partida en ese slot. |
@@ -408,8 +427,10 @@ Todo se escribe en el prompt `>` (mayusculas/minusculas toleradas en la mayoria)
 | `MUTE` / `SILENCIO` | Apaga efectos AY. |
 | `SONIDO` / `AUDIO` / **F6** | Alterna sonido ON/OFF. |
 | `IP` / `HOST` / **F7** | Edita `P$` y escribe `HOST.TXT` en la SD. |
+| `RAPIDO` / **F9** | Alterna texto rapido persistente (`FA%`). |
+| `LENTO` | Typewriter letra a letra. |
 
-Softkeys **F1**–**F8** se definen al arrancar (`KEY`). Al arrancar se lee `HOST.TXT` si existe.
+Softkeys **F1**–**F9** se definen al arrancar (`KEY`). Bienvenida: atajos cortos; **F2**/`AYUDA` muestra la lista completa (paginada). Turnos largos piden **ESPACIO** cada ~11 lineas. Con **RAPIDO**/**F9** cada linea se imprime de golpe. Al arrancar se lee `HOST.TXT` si existe.
 
 Cualquier otra frase se interpreta como **accion de aventura** y se envia a `/turn`.
 
@@ -506,10 +527,13 @@ Si cargas un slot vacio: mensaje de error (`E:1`).
 | `Fallo red/archivo` | M4 conectada (`|NETSTAT`); servidor en `0.0.0.0:8080` |
 | Texto cortado o `...` | Limite 12×40 del protocolo; normal si la IA escribe de mas |
 | Texto basura / ERROR: raro | Servidor antiguo sin CRLF; actualiza y reinicia `server.py` |
+| `Sin conexion con el servidor.` tras un turno | Fallo de red o `RESP.TXT` vacio: se vacia el fichero antes del GET para no repetir el turno anterior. `R` reenvia; espacio vuelve al prompt |
 | IA no responde | Proveedor/key correctos; panel en modo IA; mira **Error LLM** (OpenRouter a veces `content` vacio: el panel muestra error, no crash) |
 | Siempre arranca en Ollama | Pulsa **Guardar** tras elegir proveedor; comprueba que existe `server/settings.json` |
 | Mock siempre igual | Es normal sin palabras clave; cambia a modo IA |
-| `RUN"aventura` no carga | Tokeniza el BASIC en emulador o teclea y `SAVE` |
+| `RUN"aventura` no carga | Guarda desde emulador (`SAVE`) o sube por web UI M4; CRLF en ASCII |
+| `(Sin T2.SCR…)` / titulo MODE 2 ausente | `T2.SCR` en la misma carpeta; debe llevar cabecera AMSDOS (`make_title2_scr.py`); prueba `ver_title2.bas` |
+| Sin titulo MODE 1 | Falta `TITLE.SCR` junto al `.bas`; el juego continua |
 | Load no restaura en CPC | El load afecta al **servidor**; el siguiente turno en CPC ya usa ese estado |
 | Panel no responde / congelado | Reinicia `server.py` |
 | Selector modelos vacio (Ollama) | Ollama debe estar arriba; pulsa **Modelos ↺**; mira consola del servidor |
@@ -538,6 +562,10 @@ Deberia verse algo como `T:OK servidor ...`.
 | Launcher CPC | `client/sintaxia.bas` |
 | Cliente CPC MODE 1 | `client/aventura.bas` |
 | Cliente CPC MODE 2 | `client/aventuramode2.bas` |
+| Titulo MODE 1 | `client/TITLE.SCR` (manual; no pisar) |
+| Titulo MODE 2 | `client/T2.SCR` (+ alias `TITLE2.SCR`) |
+| Generar titulo MODE 2 | `tools/make_title2_scr.py` (+ `tools/amsdos_header.py`) |
+| Cabecera AMSDOS | `tools/amsdos_header.py` |
 | Arranque PC | `run_server.bat` |
 | Ajustes locales | `server/settings.json` (gitignored) |
 | Esquema paquete | `docs/ESQUEMA_PAQUETE.md` |
