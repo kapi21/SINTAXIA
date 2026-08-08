@@ -1,66 +1,47 @@
 # SINTAXIA — Handoff de sesión
 
-**Fecha:** 2026-08-07 (noche) — docs + push; README GitHub pendiente  
+**Fecha:** 2026-08-08 — demo-v1.1 (wizard + memoria trama)  
 **Workspace local:** `C:\@MIS PROYECTOS\M4`  
 **Repo GitHub:** https://github.com/kapi21/SINTAXIA  
-**Branch:** `main`
+**Branch:** `demo-v1.1` (no mergeado a `main` aún)
 
 ---
 
 ## Estado
 
 - **Proyecto:** SINTAXIA — aventura conversacional IA para Amstrad CPC + M4 Board
-- **Cliente:** ASCII en `client/*.bas` (+ `client/ascii/` sincronizado)
-- **Titulos SD (misma carpeta que el .bas, sin ruta `client/`):**
-  - `TITLE.SCR` — **manual del usuario** (no regenerar / no pisar; `make_title_scr.py` escribe `TITLE_gen.SCR` salvo `--force`)
-  - `T2.SCR` / `TITLE2.SCR` — MODE 2 con **cabecera AMSDOS** (16512 bytes); generado por `tools/make_title2_scr.py`
-- **UX reciente:** “Iniciando la aventura…”, avisos del launcher, AYUDA sin CLS ni pausa ESPACIO
-- **Servidor:** estable
+- **Rama activa de trabajo:** `demo-v1.1`
+- **Servidor:** asistente de setup obligatorio + memoria de trama / historial ampliado
 - **Aparcado** (`archivo/`, gitignored): presencia_ui, tokenizado_cpc, music_exp, imagen_trabajo, material M4
 
 ---
 
 ## Hecho (esta tanda)
 
-1. Limpieza: tokenizado/music/herramientas ConvImg → `archivo/` (sin borrar)  
-2. MODE 2: splash `T2.SCR` + fallback Dinamic; AMSDOS header (clave para LOAD en M4)  
-3. Mensajes de carga; AYUDA no borra pantalla  
-4. Docs: GUIA + MANUAL + HANDOFF + README  
+1. **Setup wizard** en `/ui` (primera instalación + Reconfigurar con wipe total)
+2. **Memoria LLM:** historial ~20 mensajes (~10 turnos) alineado guardado/enviado; `plot_summary` al recortar; compactación LLM si crece; persistido en saves
+3. Docs: MANUAL + README roadmap + tests `test_setup_wizard` / `test_plot_memory`
 
 ---
 
 ## Pendiente
 
-1. (Opcional) HTTPS PWA  
-2. (Largo) TCP / net ASM Z80  
-3. Retomar solo a proposito: `archivo/tokenizado_cpc/` o `archivo/presencia_ui/`  
-4. (Opcional) subir `imagen/splash2.png` / `splash3.png` al repo si se quieren como arte fuente publicado  
-
----
-
-## SD — estructura correcta
-
-```text
-sintaxia.bas
-aventura.bas
-aventuramode2.bas
-TITLE.SCR          ← MODE 1 (usuario)
-T2.SCR             ← MODE 2 (AMSDOS)
-TITLE2.SCR         ← opcional, mismo contenido que T2
-HOST.TXT           ← opcional IP:puerto
-```
-
-`LOAD` en BASIC: `LOAD"T2.SCR",&C000` — **nunca** `client/...`.
+1. Probar más en juego real la memoria de trama
+2. PR / merge `demo-v1.1` → `main` cuando toque
+3. (Opcional) HTTPS PWA  
+4. (Largo) TCP / net ASM Z80  
+5. (Opcional) subir `imagen/splash2.png` / `splash3.png` si se quieren como arte fuente publicado  
 
 ---
 
 ## Cómo verificar
 
-- `RUN"sintaxia` → 1/2 → titulo → juego  
-- AYUDA: texto previo visible; lista completa sin “Pulsa ESPACIO” intermedio  
+- `cd tests` → `python -m pytest`
+- Wizard: `SINTAXIA_SETTINGS` temporal + `python server.py --port 18080 --no-browser` → `/ui`
+- Memoria: partida larga; hechos viejos deben seguir en coherencia tras >10 turnos
 
 ## Riesgos
 
-- Regenerar `TITLE.SCR` con `--force` pisa el arte manual del usuario  
-- `.SCR` sin cabecera AMSDOS → LOAD falla en M4 (parece “no esta”)  
-- `archivo/` no se publica (gitignore)  
+- Compactar `plot_summary` con LLM añade latencia solo cuando el resumen supera ~900 chars
+- Regenerar `TITLE.SCR` con `--force` pisa el arte manual
+- `.SCR` sin cabecera AMSDOS → LOAD falla en M4

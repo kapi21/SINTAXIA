@@ -156,7 +156,7 @@ python -m pytest
 
 ## Roadmap breve
 
-- Actualizar atmosférica / coherencia LLM
+- (Hecho en demo-v1.1) Memoria de trama + ventana de historial mas larga
 - (Opcional) HTTPS PWA
 - (Largo) cliente TCP Z80
 

@@ -41,7 +41,7 @@ El PC se encarga de:
 
 - Hablar con **Ollama**, **OpenAI**, **Claude**, **Gemini**, **OpenRouter**, una **API OpenAI-compatible**, o un modo **Mock** de prueba
 - Empaquetar la respuesta para el CPC
-- Guardar inventario, flags, lugar e historial corto
+- Guardar inventario, flags, lugar, historial reciente y memoria de trama
 - Ofrecer un **panel web** de configuracion estilo CPC
 
 Inspiracion: las aventuras conversacionales espanolas de los 80 (Don Quijote, El Jabato, etc.), llevadas a un flujo con IA en tiempo real.
@@ -319,7 +319,7 @@ El panel imita un monitor CPC (borde azul, tipografia pixel, arte hero).
 | **Partidas (slots 1-3)** | Resumen de partidas guardadas en el PC (`server/saves/`). |
 | **nombre opcional** | Etiqueta al guardar (ej. `castillo`). |
 | **Slot 1/2/3** | Elige que hueco usar. |
-| **Guardar** (slot) | Guarda mundo (`system`/`start_state`) + estado + historial corto. |
+| **Guardar** (slot) | Guarda mundo (`system`/`start_state`) + estado + historial + memoria de trama. |
 | **Cargar** | Restaura ese slot **en memoria** (no escribe `settings.json`). |
 | **Listar** | Refresca la lista de slots. |
 | **Jugador** | Ultimo mensaje recibido. |
@@ -338,7 +338,7 @@ Al pulsar **Finalizar** en el asistente, **Guardar** en el panel (y al cerrar el
 
 Al arrancar de nuevo, el servidor carga ese fichero. Veras en consola `SETTINGS cargados…` y el proveedor/modelo recordados. Si falta setup: `SETUP required → http://127.0.0.1:PUERTO/ui`.
 
-No confundir con las **partidas** (`server/saves/slotN.json`): ahi va el **mundo de esa partida** + inventario/historial. El LOAD de un slot pone ese mundo en RAM; **Guardar** del panel es lo que persiste el default en `settings.json`. **Reconfigurar…** borra settings (stub) + slots.
+No confundir con las **partidas** (`server/saves/slotN.json`): ahi va el **mundo de esa partida** + inventario/historial/`plot_summary`. El LOAD de un slot pone ese mundo en RAM; **Guardar** del panel es lo que persiste el default en `settings.json`. **Reconfigurar…** borra settings (stub) + slots.
 
 ### 7.4 Flujo tipico en la IU
 
@@ -511,9 +511,10 @@ Visibles en el panel; consultables en CPC con `INV` (inventario).
 - **Que se guarda:**
   - **Mundo:** prompt `system` + `start_state` (la aventura generada / en juego)
   - **Situacion:** lugar, inventario, flags
-  - **Conversacion:** historial corto del chat (no la API key)
+  - **Conversacion:** historial reciente (~10 turnos / 20 mensajes user+assistant)
+  - **Memoria de trama (`plot_summary`):** hechos que salen de la ventana de historial; se reinyectan al LLM en cada turno para no “olvidar” la historia
 - **LOAD:** restaura todo eso **en memoria** y envia al CPC un **resumen de reanudacion**: mundo (titulo/premisa), situacion (lugar, inventario, hechos), y un recuerdo de la ultima accion / narracion. **No** reescribe `settings.json`.
-- **Slots antiguos** (sin `system`): cargan estado + historial; el prompt en memoria no cambia; el CPC avisa `Mundo no embebido`.
+- **Slots antiguos** (sin `system` / sin `plot_summary`): cargan lo que haya; el prompt en memoria no cambia si falta mundo; el CPC avisa `Mundo no embebido` si aplica.
 - **Desde CPC:** `SAVE 2`, `LOAD 2`, `SAVES` (f3/f4 = slot 1).
 - **Desde panel:** bloque Partidas → elegir slot → Guardar / Cargar.
 

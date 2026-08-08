@@ -277,6 +277,60 @@ def scrub_history_snippet(text: str, max_len: int = 120) -> str:
     return t
 
 
+# Historial enviado al LLM = mismo tope que se guarda (antes: guardaba 12 y solo enviaba 6).
+MAX_HISTORY_MESSAGES = 20  # ~10 turnos (user+assistant)
+MAX_PLOT_SUMMARY_CHARS = 1200
+PLOT_COMPACT_THRESHOLD = 900
+
+_PLOT_COMPACT_SYSTEM = (
+    "Eres el archivero de una aventura de texto. "
+    "Resume SOLO hechos permanentes ya ocurridos (lugares visitados, objetos, PNJs, "
+    "puertas, promesas, peligros). ASCII sin tildes ni enes. "
+    "Maximo 10 lineas cortas. Sin inventar. Sin formato T:/S:."
+)
+
+
+def fold_plot_summary(
+    existing: str,
+    dropped: list[dict[str, str]] | None,
+    *,
+    max_chars: int = MAX_PLOT_SUMMARY_CHARS,
+) -> str:
+    """Incorpora mensajes caidos del historial a la memoria de trama (local)."""
+    bits: list[str] = []
+    for item in dropped or []:
+        if not isinstance(item, dict):
+            continue
+        role = str(item.get("role", ""))
+        content = scrub_history_snippet(str(item.get("content", "")), 140)
+        if not content:
+            continue
+        prefix = "J:" if role == "user" else "N:"
+        bits.append(f"{prefix} {content}")
+    chunk = " | ".join(bits).strip()
+    base = normalize_cpc(str(existing or "").strip())
+    if chunk:
+        merged = f"{base} || {chunk}".strip(" |") if base else chunk
+    else:
+        merged = base
+    merged = re.sub(r"\s+", " ", merged).strip()
+    if len(merged) <= max_chars:
+        return merged
+    # Conservar el final (hechos mas recientes del resumen)
+    return ("..." + merged[-(max_chars - 3) :]).strip()
+
+
+def plot_summary_for_prompt(summary: str) -> str:
+    s = normalize_cpc(str(summary or "").strip())
+    if not s:
+        return ""
+    return (
+        "MEMORIA DE TRAMA (hechos ya ocurridos; no los contradigas ni los borres):\n"
+        f"{s}\n"
+        "Si un hecho nuevo es importante, reflejalo tambien con flags F: cuando aplique.\n"
+    )
+
+
 def build_load_resume_lines(
     system: str,
     state: dict[str, Any] | None,
@@ -723,7 +777,8 @@ class AdventureAI:
         self.temperature = temperature
         self.system = system if system is not None else load_system_prompt()
         self.history: list[dict[str, str]] = []
-        self.max_history = 6
+        self.max_history = MAX_HISTORY_MESSAGES  # mensajes (user+assistant) guardados Y enviados
+        self.plot_summary = ""
         self.state = GameState()
         self.start_state: dict[str, Any] = dict(DEFAULT_START_STATE)
         self.last_user = ""
@@ -736,6 +791,7 @@ class AdventureAI:
         """Reinicia historial y estado al mundo base actual del servidor."""
         w = clamp_cols(width)
         self.history.clear()
+        self.plot_summary = ""
         self.state = GameState.from_dict(self.start_state)
         self.last_user = "(reset)"
         self.last_error = ""
@@ -751,7 +807,7 @@ class AdventureAI:
         return packet
 
     def export_save(self) -> dict[str, Any]:
-        hist = self.history[-(self.max_history * 2) :]
+        hist = self.history[-self.max_history :]
         clean_hist: list[dict[str, str]] = []
         for item in hist:
             if not isinstance(item, dict):
@@ -766,6 +822,7 @@ class AdventureAI:
             "start_state": start,
             "state": self.state.to_dict(),
             "history": clean_hist,
+            "plot_summary": str(self.plot_summary or "")[:MAX_PLOT_SUMMARY_CHARS],
         }
 
     def import_save(
@@ -791,13 +848,19 @@ class AdventureAI:
         self.history = []
         hist = data.get("history")
         if isinstance(hist, list):
-            for item in hist[-(self.max_history * 2) :]:
+            for item in hist[-self.max_history :]:
                 if not isinstance(item, dict):
                     continue
                 role = str(item.get("role", ""))
                 content = str(item.get("content", ""))
                 if role in ("user", "assistant") and content:
                     self.history.append({"role": role, "content": content[:500]})
+        ps = data.get("plot_summary")
+        self.plot_summary = (
+            normalize_cpc(str(ps))[:MAX_PLOT_SUMMARY_CHARS]
+            if isinstance(ps, str) and ps.strip()
+            else ""
+        )
         self.last_error = ""
         self.last_user = "(load)"
         self.last_packet = build_load_resume_packet(
@@ -808,7 +871,6 @@ class AdventureAI:
             slot=slot,
             width=width,
         )
-
     def config_dict(self) -> dict[str, Any]:
         return {
             "provider": self.provider,
@@ -821,6 +883,7 @@ class AdventureAI:
             "system": self.system,
             "start_state": dict(self.start_state) if isinstance(self.start_state, dict) else {},
             "history_len": len(self.history),
+            "plot_summary": self.plot_summary,
             "last_user": self.last_user,
             "last_packet": self.last_packet,
             "last_error": self.last_error,
@@ -874,6 +937,7 @@ class AdventureAI:
             self.start_state = GameState.from_dict(data["start_state"]).to_dict()
             self.state = GameState.from_dict(self.start_state)
             self.history.clear()
+            self.plot_summary = ""
             self._intro_packet = None
             self._intro_key = ""
             self.last_error = ""
@@ -888,16 +952,19 @@ class AdventureAI:
             self.start_state = dict(DEFAULT_START_STATE)
             self.state = GameState.from_dict(self.start_state)
             self.history.clear()
+            self.plot_summary = ""
             self._intro_packet = None
             self._intro_key = ""
             self.last_user = "(mundo por defecto)"
 
     def _messages(self, user_msg: str, *, width: int | None = None) -> list[dict[str, str]]:
         w = clamp_cols(width)
+        memory = plot_summary_for_prompt(self.plot_summary)
         system = (
             self.system
             + "\n\n"
             + self.state.summary_for_prompt()
+            + (("\n\n" + memory) if memory else "")
             + f"\n\nANCHO PANTALLA CPC: cada segmento T: MAXIMO {w} caracteres. "
             f"Llena cada segmento cerca de {w} chars; sin segmentos vacios ni cortos a proposito."
             + "\n\nEscribe con coherencia: mayusculas al inicio de frase, "
@@ -907,6 +974,37 @@ class AdventureAI:
         messages.extend(self.history[-self.max_history :])
         messages.append({"role": "user", "content": user_msg})
         return messages
+
+    def _trim_history(self) -> None:
+        """Recorta historial al tope; lo caido pasa a plot_summary."""
+        limit = int(self.max_history)
+        if len(self.history) <= limit:
+            return
+        dropped = self.history[:-limit]
+        self.history = self.history[-limit:]
+        self.plot_summary = fold_plot_summary(self.plot_summary, dropped)
+        # Compactar con LLM solo si el resumen se hincha (evita una 2a llamada cada turno).
+        if len(self.plot_summary) >= PLOT_COMPACT_THRESHOLD:
+            self._compact_plot_summary()
+
+    def _compact_plot_summary(self, timeout: float = 45.0) -> None:
+        """Reduce plot_summary con un one-shot LLM; si falla, deja el fold local."""
+        raw = self.plot_summary.strip()
+        if not raw:
+            return
+        user = (
+            "Resume y fusiona esta memoria de trama. Conserva todos los hechos utiles:\n\n"
+            + raw[:2000]
+        )
+        try:
+            out = self._one_shot_chat(_PLOT_COMPACT_SYSTEM, user, timeout=timeout)
+            cleaned = normalize_cpc(out)
+            cleaned = re.sub(r"(?i)\b[TSEILF]:\S*", " ", cleaned)
+            cleaned = re.sub(r"\s+", " ", cleaned).strip()
+            if cleaned:
+                self.plot_summary = cleaned[:MAX_PLOT_SUMMARY_CHARS]
+        except Exception as exc:
+            print(f"PLOT compact skip: {exc}")
 
     def _post_json(self, url: str, payload: dict[str, Any], headers: dict[str, str], timeout: float) -> dict[str, Any]:
         req = urllib.request.Request(
@@ -1135,8 +1233,7 @@ class AdventureAI:
             # para que el historial que recibe el LLM sea conversación natural
             clean_assistant = " ".join(parse_packet(packet)["lines"])
             self.history.append({"role": "assistant", "content": clean_assistant})
-            if len(self.history) > self.max_history * 2:
-                self.history = self.history[-(self.max_history * 2) :]
+            self._trim_history()
             self.last_packet = packet
             return packet
         except (
