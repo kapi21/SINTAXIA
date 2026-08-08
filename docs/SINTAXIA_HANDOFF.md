@@ -28,9 +28,10 @@
 
 1. Probar más en juego real la memoria de trama
 2. PR / merge `demo-v1.1` → `main` cuando toque
-3. (Opcional) HTTPS PWA  
-4. (Largo) TCP / net ASM Z80  
-5. (Opcional) subir `imagen/splash2.png` / `splash3.png` si se quieren como arte fuente publicado  
+3. **(Futuro)** Catálogo de aventuras fijas en servidor — ver [IDEA_CATALOGO_AVENTURAS.md](IDEA_CATALOGO_AVENTURAS.md) (tipo autor; descarga A/B/C sin decidir)
+4. (Opcional) HTTPS PWA  
+5. (Largo) TCP / net ASM Z80  
+6. (Opcional) subir `imagen/splash2.png` / `splash3.png` si se quieren como arte fuente publicado  
 
 ---
 
