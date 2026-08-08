@@ -240,7 +240,9 @@ Orden recomendado:
 
 1. **PC:** Wi‑Fi/LAN OK, Ollama OK (si usas IA).
 2. **PC:** `run_server.bat` (o `cd server` + `python server.py`).
-3. **PC (opcional):** abre http://127.0.0.1:8080/ui y revisa el modo/modelo.
+3. **PC:** abre http://127.0.0.1:8080/ui  
+   - **Primera vez** (sin `settings.json` o tras reconfigurar): el **asistente de configuracion** es obligatorio (motor, narrativa, IP/puerto para el CPC). Hasta terminarlo, el CPC solo puede hacer `/ping`; `/intro` y `/turn` responden error.  
+   - Si ya hay config: panel normal. Boton **Reconfigurar…** borra config + estado + slots (hay que escribir `RECONFIGURAR`).
 4. **CPC:** `|NETSTAT` → `RUN"sintaxia` → **1** o **2**  
    (o `RUN"aventura` / `RUN"aventuramode2` en directo)
 5. En la intro del CPC debe salir **SERVIDOR ACTIVO**. Si no, pulsa `R` para reintentar o revisa IP/firewall.
@@ -249,17 +251,19 @@ Orden recomendado:
 
 | Comando | Efecto |
 |---------|--------|
-| `run_server.bat` | Carga `server/settings.json` si existe; si no, Ollama. Abre el panel `/ui` |
+| `run_server.bat` | Carga `server/settings.json` si existe; si no, abre el asistente en `/ui`. Abre el navegador |
 | `run_server.bat --no-browser` | Igual sin abrir el navegador |
-| `run_server.bat --mock` | Sin LLM; respuestas por palabras clave (pisa settings en esa sesion) |
+| `run_server.bat --mock` | Sin LLM; respuestas por palabras clave (pisa settings en esa sesion; no salta el asistente si falta setup) |
 | `run_server.bat --model llama3.1:8b` | Elige modelo (pisa settings) |
 | `run_server.bat --provider openai` | OpenAI oficial (`api.openai.com`; usa `--api-key`) |
 | `run_server.bat --provider openrouter` | OpenRouter (`openrouter.ai`; usa `--api-key`) |
 | `run_server.bat --provider openai_compat` | API compatible (LM Studio, Ollama `/v1`, etc.) |
 | `run_server.bat --provider claude` | Anthropic Claude (requiere `--api-key`) |
 | `run_server.bat --provider gemini` | Google Gemini (requiere `--api-key`) |
+| `run_server.bat --port 9090` | Fuerza puerto (si no se pasa, usa `preferred_port` del asistente o 8080) |
 
-Los flags CLI solo afectan a **esa** sesion; al **Guardar** o al cerrar el servidor se vuelve a escribir `settings.json` con lo que haya en memoria.
+Los flags CLI solo afectan a **esa** sesion; al **Guardar**, al **Finalizar** el asistente o al cerrar el servidor se vuelve a escribir `settings.json` con lo que haya en memoria. El `preferred_port` del asistente se aplica en el **siguiente** arranque (salvo que pases `--port`).
+
 
 Desde PowerShell:
 
@@ -325,25 +329,25 @@ El panel imita un monitor CPC (borde azul, tipografia pixel, arte hero).
 
 ### 7.3 Persistencia de ajustes (`settings.json`)
 
-Al pulsar **Guardar** (y al cerrar el servidor) se escribe `server/settings.json` en el PC:
+Al pulsar **Finalizar** en el asistente, **Guardar** en el panel (y al cerrar el servidor) se escribe `server/settings.json` en el PC:
 
+- `setup_complete`, `preferred_port` (asistente)
 - proveedor, modelo, URLs, temperatura, modo mock  
 - **API key** (en claro; fichero local, **no** se sube a Git)  
 - system prompt y `start_state` (mundo base)
 
-Al arrancar de nuevo, el servidor carga ese fichero. Veras en consola `SETTINGS cargados…` y el proveedor/modelo recordados.
+Al arrancar de nuevo, el servidor carga ese fichero. Veras en consola `SETTINGS cargados…` y el proveedor/modelo recordados. Si falta setup: `SETUP required → http://127.0.0.1:PUERTO/ui`.
 
-No confundir con las **partidas** (`server/saves/slotN.json`): ahi va el **mundo de esa partida** + inventario/historial. El LOAD de un slot pone ese mundo en RAM; **Guardar** del panel es lo que persiste el default en `settings.json`.
+No confundir con las **partidas** (`server/saves/slotN.json`): ahi va el **mundo de esa partida** + inventario/historial. El LOAD de un slot pone ese mundo en RAM; **Guardar** del panel es lo que persiste el default en `settings.json`. **Reconfigurar…** borra settings (stub) + slots.
 
 ### 7.4 Flujo tipico en la IU
 
-1. Arranca el servidor (si ya guardaste antes, OpenRouter u otro proveedor vuelve solo).
-2. Abre `/ui`.
-3. Primera vez / Ollama: **IA** + **Ollama** → modelos → **Guardar**.
-4. Cloud (OpenAI/Claude/Gemini/OpenRouter): proveedor → **API key** → modelo → **Guardar**.
-5. O pulsa **Modelos ↺** para recargar la lista.
-6. Deja el panel abierto mientras juegas en el CPC.
-7. Usa **Guardar/Cargar** slot (partidas) cuando quieras pausar la aventura.
+1. Arranca el servidor.
+2. Abre `/ui`. Si aparece el asistente, completalo (Mock o IA → narrativa → red/CPC → Finalizar).
+3. Con el panel ya abierto: ajusta modelo/prompt y **Guardar** cuando quieras.
+4. Deja el panel abierto mientras juegas en el CPC.
+5. Usa **Guardar/Cargar** slot (partidas) cuando quieras pausar la aventura.
+6. Si quieres empezar de cero en el PC: **Reconfigurar…** (escribe `RECONFIGURAR`).
 
 ---
 

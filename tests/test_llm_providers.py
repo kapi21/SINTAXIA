@@ -23,7 +23,7 @@ class TestProvidersMeta(unittest.TestCase):
     def test_providers_set(self):
         self.assertEqual(
             PROVIDERS,
-            frozenset({"ollama", "openai", "claude", "gemini", "openai_compat"}),
+            frozenset({"ollama", "openai", "claude", "gemini", "openai_compat", "openrouter"}),
         )
 
     def test_defaults_have_models(self):

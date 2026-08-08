@@ -5,6 +5,7 @@ Escucha en 0.0.0.0:8080
   CPC:  GET /ping  /turn?msg=...  /reset
   Web:  GET /ui
   API:  GET/POST /api/config  GET /api/status  POST /api/reset
+        GET /api/setup/status  POST /api/setup/complete  POST /api/setup/reset
         GET /api/models  GET /api/saves  POST /api/save  POST /api/load
 
 Uso:
@@ -45,7 +46,13 @@ def parse_cols(qs: dict) -> int:
     except (TypeError, ValueError):
         return clamp_cols(40)
 from save_game import delete_slot, list_slots, load_slot, save_slot, validate_slot
-from settings_store import load_settings, save_settings
+from settings_store import is_setup_complete, load_settings, save_settings
+from setup_wizard import (
+    SETUP_BLOCK_MSG,
+    build_status,
+    perform_settings_reset,
+    validate_complete_body,
+)
 
 HOST = "0.0.0.0"
 PORT = 8080
@@ -73,6 +80,12 @@ _ai: AdventureAI | None = None
 _use_mock = False
 _last_mock_packet = ""
 _last_mock_user = ""
+_setup_complete = False
+_preferred_port: int | None = None
+
+
+def setup_block_packet(*, width: int | None = None) -> str:
+    return packet_from_text(SETUP_BLOCK_MSG, sound=0, error=1, width=width)
 
 
 def turn_reply(user_msg: str, *, width: int | None = None) -> str:
@@ -260,14 +273,27 @@ class AdventureHandler(BaseHTTPRequestHandler):
                     "ok": True,
                     "mock": _use_mock,
                     "port": PORT,
+                    "setup_complete": _setup_complete,
+                    "preferred_port": _preferred_port,
                 }
             )
+            return
+
+        if path == "/api/setup/status":
+            with _state_lock:
+                st = build_status(listen_port=PORT)
+                st["setup_complete"] = _setup_complete
+                if _preferred_port is not None:
+                    st["preferred_port"] = _preferred_port
+            self._send_json(st)
             return
 
         if path == "/api/config":
             with _state_lock:
                 ai = ensure_ai()
                 cfg = ai.config_dict()
+                cfg["setup_complete"] = _setup_complete
+                cfg["preferred_port"] = _preferred_port
                 if _use_mock:
                     cfg["last_user"] = _last_mock_user or cfg.get("last_user", "")
                     cfg["last_packet"] = _last_mock_packet or cfg.get("last_packet", "")
@@ -294,7 +320,7 @@ class AdventureHandler(BaseHTTPRequestHandler):
                     api_key=api_key,
                     ollama_url=ollama_url,
                 )
-                print(f"MODELS ok → {len(models)} modelos")
+                print(f"MODELS ok -> {len(models)} modelos")
                 self._send_json({"ok": True, "models": models, "provider": provider})
             except Exception as exc:
                 print(f"MODELS error: {exc}")
@@ -332,6 +358,9 @@ class AdventureHandler(BaseHTTPRequestHandler):
         if path == "/intro":
             cols = parse_cols(qs)
             with _state_lock:
+                if not _setup_complete:
+                    self._send_plain(setup_block_packet(width=cols))
+                    return
                 use_mock = _use_mock
                 ai = ensure_ai()
             with _turn_lock:
@@ -343,6 +372,9 @@ class AdventureHandler(BaseHTTPRequestHandler):
         if path == "/reset":
             cols = parse_cols(qs)
             with _state_lock:
+                if not _setup_complete:
+                    self._send_plain(setup_block_packet(width=cols))
+                    return
                 if _ai is not None:
                     body = _ai.reset(width=cols)
                 else:
@@ -357,6 +389,10 @@ class AdventureHandler(BaseHTTPRequestHandler):
 
         if path == "/turn":
             cols = parse_cols(qs)
+            with _state_lock:
+                if not _setup_complete:
+                    self._send_plain(setup_block_packet(width=cols))
+                    return
             raw_msg = qs.get("msg", [""])[0]
             msg = unquote_plus(raw_msg)[:120]
             print(f"TURN cols={cols}: {msg!r}")
@@ -380,11 +416,82 @@ class AdventureHandler(BaseHTTPRequestHandler):
         )
 
     def do_POST(self) -> None:  # noqa: N802
-        global _use_mock
+        global _use_mock, _ai, _setup_complete, _preferred_port, _last_mock_packet, _last_mock_user
         parsed = urlparse(self.path)
         path = parsed.path.rstrip("/") or "/"
 
+        if path == "/api/setup/complete":
+            data = self._read_json()
+            try:
+                with _state_lock:
+                    ai = ensure_ai()
+                    body_in = dict(data) if isinstance(data, dict) else {}
+                    if "preferred_port" not in body_in or body_in.get("preferred_port") in (None, ""):
+                        body_in["preferred_port"] = PORT
+                    if ai.api_key:
+                        body_in["_has_server_key"] = True
+                    normalized = validate_complete_body(body_in)
+                    _use_mock = bool(normalized.pop("mock"))
+                    preferred = int(normalized.pop("preferred_port"))
+                    ai.apply_config(normalized)
+                    _preferred_port = preferred
+                    _setup_complete = True
+                    save_settings(
+                        ai,
+                        mock=_use_mock,
+                        setup_complete=True,
+                        preferred_port=preferred,
+                    )
+                    cfg = ai.config_dict()
+                    cfg["mock"] = _use_mock
+                    cfg["setup_complete"] = True
+                    cfg["preferred_port"] = preferred
+                restart_hint = preferred != PORT
+                print(
+                    f"SETUP complete mock={_use_mock} provider={ai.provider} "
+                    f"model={ai.model} port={preferred}"
+                )
+                self._send_json(
+                    {
+                        "ok": True,
+                        "config": cfg,
+                        "preferred_port": preferred,
+                        "listen_port": PORT,
+                        "restart_for_port": restart_hint,
+                    }
+                )
+            except ValueError as exc:
+                self._send_json({"ok": False, "error": str(exc)}, 400)
+            return
+
+        if path == "/api/setup/reset":
+            data = self._read_json()
+            try:
+                with _state_lock:
+                    keep_port = _preferred_port if _preferred_port is not None else PORT
+                    result = perform_settings_reset(
+                        confirm=str(data.get("confirm") or ""),
+                        keep_preferred_port=keep_port,
+                    )
+                    _setup_complete = False
+                    _use_mock = False
+                    _last_mock_packet = ""
+                    _last_mock_user = ""
+                    _ai = AdventureAI()
+                    _preferred_port = keep_port
+                print("SETUP reset - wizard required")
+                self._send_json(result)
+            except ValueError as exc:
+                self._send_json({"ok": False, "error": str(exc)}, 400)
+            return
+
         if path == "/api/config":
+            if not _setup_complete:
+                self._send_json(
+                    {"ok": False, "setup_complete": False, "error": "setup required"},
+                    409,
+                )
+                return
             data = self._read_json()
             with _state_lock:
                 if "mock" in data:
@@ -393,13 +500,26 @@ class AdventureHandler(BaseHTTPRequestHandler):
                 ai.apply_config(data)
                 cfg = ai.config_dict()
                 cfg["mock"] = _use_mock
-                save_settings(ai, mock=_use_mock)
+                cfg["setup_complete"] = _setup_complete
+                cfg["preferred_port"] = _preferred_port
+                save_settings(
+                    ai,
+                    mock=_use_mock,
+                    setup_complete=_setup_complete,
+                    preferred_port=_preferred_port,
+                )
             print(f"CONFIG mock={_use_mock} provider={ai.provider} model={ai.model}")
             self._send_json({"ok": True, "config": cfg})
             return
 
         if path == "/api/reset":
             with _state_lock:
+                if not _setup_complete:
+                    self._send_json(
+                        {"ok": False, "setup_complete": False, "error": "setup required"},
+                        409,
+                    )
+                    return
                 if _ai is not None:
                     body = _ai.reset()
                 else:
@@ -414,6 +534,12 @@ class AdventureHandler(BaseHTTPRequestHandler):
         if path == "/api/save":
             data = self._read_json()
             with _state_lock:
+                if not _setup_complete:
+                    self._send_json(
+                        {"ok": False, "setup_complete": False, "error": "setup required"},
+                        409,
+                    )
+                    return
                 ai = ensure_ai()
                 try:
                     slot = validate_slot(data.get("slot", 1))
@@ -427,6 +553,12 @@ class AdventureHandler(BaseHTTPRequestHandler):
         if path == "/api/load":
             data = self._read_json()
             with _state_lock:
+                if not _setup_complete:
+                    self._send_json(
+                        {"ok": False, "setup_complete": False, "error": "setup required"},
+                        409,
+                    )
+                    return
                 ai = ensure_ai()
                 try:
                     slot = validate_slot(data.get("slot", 1))
@@ -459,6 +591,12 @@ class AdventureHandler(BaseHTTPRequestHandler):
 
         if path == "/api/generate_prompt":
             with _state_lock:
+                if not _setup_complete:
+                    self._send_json(
+                        {"ok": False, "setup_complete": False, "error": "setup required"},
+                        409,
+                    )
+                    return
                 if _use_mock:
                     self._send_json(
                         {
@@ -506,15 +644,25 @@ def _persist_settings() -> None:
     """Respaldo al cerrar el proceso."""
     if _ai is None:
         return
-    save_settings(_ai, mock=_use_mock)
+    save_settings(
+        _ai,
+        mock=_use_mock,
+        setup_complete=_setup_complete,
+        preferred_port=_preferred_port,
+    )
 
 
 def main() -> None:
-    global _ai, _use_mock
+    global _ai, _use_mock, _setup_complete, _preferred_port, PORT
 
     parser = argparse.ArgumentParser(description="Servidor SINTAXIA")
     parser.add_argument("--host", default=HOST)
-    parser.add_argument("--port", type=int, default=PORT)
+    parser.add_argument(
+        "--port",
+        type=int,
+        default=None,
+        help="Puerto HTTP (si no se pasa, usa preferred_port de settings o 8080)",
+    )
     parser.add_argument(
         "--model",
         default=None,
@@ -547,6 +695,21 @@ def main() -> None:
     saved = load_settings()
     if saved:
         print("SETTINGS cargados desde settings.json")
+
+    _setup_complete = is_setup_complete(saved)
+    if saved.get("preferred_port") is not None:
+        try:
+            _preferred_port = int(saved["preferred_port"])
+        except (TypeError, ValueError):
+            _preferred_port = None
+
+    if args.port is not None:
+        listen_port = int(args.port)
+    elif _preferred_port is not None:
+        listen_port = int(_preferred_port)
+    else:
+        listen_port = PORT
+    PORT = listen_port
 
     provider = args.provider or str(saved.get("provider") or "ollama")
     if provider not in PROVIDERS:
@@ -586,9 +749,20 @@ def main() -> None:
     if args.mock:
         _use_mock = True
 
+    # Migracion silenciosa: legado usable → marcar setup_complete en disco
+    if _setup_complete and saved and "setup_complete" not in saved:
+        save_settings(
+            _ai,
+            mock=_use_mock,
+            setup_complete=True,
+            preferred_port=_preferred_port,
+        )
+
     atexit.register(_persist_settings)
 
-    if _use_mock:
+    if not _setup_complete:
+        print(f"SETUP required -> http://127.0.0.1:{PORT}/ui")
+    elif _use_mock:
         print("Modo MOCK (sin LLM)")
     else:
         print(
@@ -596,12 +770,12 @@ def main() -> None:
             f"key={'*' if _ai.api_key else '(none)'}"
         )
 
-    server = ThreadingHTTPServer((args.host, args.port), AdventureHandler)
+    server = ThreadingHTTPServer((args.host, PORT), AdventureHandler)
     lan_ip = get_lan_ip()
-    ui_url = f"http://127.0.0.1:{args.port}/ui"
-    print(f"Servidor en todas las interfaces (0.0.0.0:{args.port})")
+    ui_url = f"http://127.0.0.1:{PORT}/ui"
+    print(f"Servidor en todas las interfaces (0.0.0.0:{PORT})")
     print(f"Panel web (PC): {ui_url}")
-    print(f"CPC (Wi-Fi LAN): http://{lan_ip}:{args.port}/ (pon P$=\"{lan_ip}:{args.port}\" en BASIC)")
+    print(f"CPC (Wi-Fi LAN): http://{lan_ip}:{PORT}/ (pon P$=\"{lan_ip}:{PORT}\" en BASIC)")
 
     if not args.no_browser:
         # Tras un instante para que el socket ya este escuchando

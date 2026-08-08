@@ -370,9 +370,220 @@
       margin-bottom: 0.35rem;
       line-height: 1.5;
     }
+
+    /* Setup wizard */
+    #setup-wizard {
+      display: none;
+      position: fixed;
+      inset: 0;
+      z-index: 40;
+      background: var(--cpc-blue);
+      overflow: auto;
+      padding: 1rem;
+    }
+    #setup-wizard.open { display: block; }
+    body.setup-mode .bezel { display: none; }
+    .wiz-inner {
+      max-width: 720px;
+      margin: 0 auto 2rem;
+      background: #000;
+      border: 6px solid var(--cpc-yellow);
+      padding: 1rem 1.1rem 1.25rem;
+      box-shadow: 8px 8px 0 #000080;
+    }
+    .wiz-inner h1 {
+      font-family: var(--pixel);
+      font-size: 0.85rem;
+      color: var(--cpc-cyan);
+      margin: 0 0 0.75rem;
+      line-height: 1.5;
+    }
+    .wiz-progress {
+      font-family: var(--pixel);
+      font-size: 0.45rem;
+      color: var(--cpc-amber);
+      letter-spacing: 0.06em;
+      margin-bottom: 0.85rem;
+    }
+    .wiz-step { display: none; }
+    .wiz-step.active { display: block; }
+    .wiz-step p { margin: 0.4rem 0 0.75rem; color: var(--cpc-yellow); }
+    .wiz-step label {
+      display: block;
+      font-family: var(--pixel);
+      font-size: 0.42rem;
+      color: var(--cpc-cyan);
+      margin: 0.65rem 0 0.25rem;
+      letter-spacing: 0.04em;
+    }
+    .wiz-step input, .wiz-step select, .wiz-step textarea {
+      width: 100%;
+      background: #000028;
+      color: var(--cpc-green);
+      border: 2px solid var(--cpc-blue2);
+      font-family: var(--term);
+      font-size: 1.05rem;
+      padding: 0.35rem 0.45rem;
+    }
+    .wiz-step textarea { min-height: 7rem; resize: vertical; }
+    .wiz-nav {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.5rem;
+      margin-top: 1.1rem;
+    }
+    .wiz-nav button, #btnFactoryReset, #btnConfirmReset, #btnCancelReset {
+      font-family: var(--pixel);
+      font-size: 0.48rem;
+      padding: 0.55rem 0.7rem;
+      border: 3px solid var(--cpc-yellow);
+      background: var(--cpc-blue);
+      color: var(--cpc-yellow);
+      cursor: pointer;
+    }
+    .wiz-nav button.primary, #btnConfirmReset {
+      background: var(--cpc-amber);
+      color: #000;
+      border-color: var(--cpc-white);
+    }
+    .wiz-nav button.danger, #btnFactoryReset {
+      border-color: var(--cpc-red);
+      color: var(--cpc-red);
+    }
+    .wiz-copy {
+      background: #001040;
+      border: 2px dashed var(--cpc-cyan);
+      padding: 0.5rem 0.65rem;
+      color: var(--cpc-cyan);
+      font-size: 1rem;
+      word-break: break-all;
+      margin: 0.5rem 0;
+    }
+    .wiz-warn { color: var(--cpc-red); }
+    .wiz-ok { color: var(--cpc-green); }
+    #resetModal {
+      display: none;
+      position: fixed;
+      inset: 0;
+      z-index: 50;
+      background: rgba(0,0,40,0.85);
+      align-items: center;
+      justify-content: center;
+      padding: 1rem;
+    }
+    #resetModal.open { display: flex; }
+    #resetModal .modal-box {
+      max-width: 480px;
+      width: 100%;
+      background: #000;
+      border: 4px solid var(--cpc-red);
+      padding: 1rem;
+      color: var(--cpc-yellow);
+    }
+    #resetModal input {
+      width: 100%;
+      margin: 0.5rem 0 0.75rem;
+      background: #200000;
+      color: var(--cpc-red);
+      border: 2px solid var(--cpc-red);
+      font-family: var(--term);
+      font-size: 1.1rem;
+      padding: 0.35rem;
+    }
   </style>
 </head>
 <body>
+  <div id="setup-wizard" aria-live="polite">
+    <div class="wiz-inner">
+      <h1>SINTAXIA — Asistente</h1>
+      <div class="wiz-progress" id="wizProgress">PASO 1 / 6</div>
+
+      <div class="wiz-step active" data-step="1">
+        <p>Bienvenido. Este asistente configura el servidor la primera vez.</p>
+        <p>Hasta terminarlo, el Amstrad CPC no podra jugar (solo /ping).</p>
+      </div>
+
+      <div class="wiz-step" data-step="2">
+        <p>Elige el motor de la aventura.</p>
+        <label for="wizMode">Modo</label>
+        <select id="wizMode">
+          <option value="mock">Mock (sin IA, pruebas)</option>
+          <option value="ai" selected>IA (LLM)</option>
+        </select>
+        <div id="wizProviderWrap">
+          <label for="wizProvider">Proveedor</label>
+          <select id="wizProvider">
+            <option value="ollama">Ollama (local)</option>
+            <option value="openai">OpenAI</option>
+            <option value="claude">Claude (Anthropic)</option>
+            <option value="gemini">Gemini (Google)</option>
+            <option value="openrouter">OpenRouter</option>
+            <option value="openai_compat">Compatible (OpenAI API)</option>
+          </select>
+        </div>
+      </div>
+
+      <div class="wiz-step" data-step="3">
+        <p>Conexion al modelo. Puedes Probar antes de continuar (aviso si falla).</p>
+        <label for="wizModel">Modelo</label>
+        <input id="wizModel" placeholder="llama3.1:8b" />
+        <label for="wizOllama">URL Ollama chat</label>
+        <input id="wizOllama" placeholder="http://127.0.0.1:11434/api/chat" />
+        <label for="wizApiBase">Base API</label>
+        <input id="wizApiBase" placeholder="https://api.openai.com/v1" />
+        <label for="wizApiKey">API key</label>
+        <input id="wizApiKey" type="password" placeholder="(si el proveedor la exige)" />
+        <div class="wiz-nav" style="margin-top:0.6rem">
+          <button type="button" id="wizBtnTest">Probar</button>
+        </div>
+        <p id="wizTestMsg" class="wiz-ok"></p>
+      </div>
+
+      <div class="wiz-step" data-step="4">
+        <p>Narrativa: system prompt y estado inicial (puedes dejar los valores por defecto).</p>
+        <label for="wizSystem">System prompt</label>
+        <textarea id="wizSystem"></textarea>
+        <label for="wizStartLoc">Lugar inicial</label>
+        <input id="wizStartLoc" value="entrada del castillo" />
+      </div>
+
+      <div class="wiz-step" data-step="5">
+        <p>Red para el CPC (M4). El puerto preferido se aplica al <strong>reiniciar</strong> el servidor.</p>
+        <label>IPs detectadas</label>
+        <div class="wiz-copy" id="wizIps">—</div>
+        <label for="wizPort">Puerto preferido</label>
+        <input id="wizPort" type="number" min="1" max="65535" value="8080" />
+        <label>Texto para HOST.TXT / P$</label>
+        <div class="wiz-copy" id="wizHostLine">—</div>
+        <p id="wizPortHint" class="wiz-warn" style="display:none"></p>
+      </div>
+
+      <div class="wiz-step" data-step="6">
+        <p>Resumen. Pulsa Finalizar para guardar y abrir el panel.</p>
+        <pre id="wizSummary" class="wiz-copy" style="white-space:pre-wrap"></pre>
+        <p id="wizSoftWarn" class="wiz-warn" style="display:none"></p>
+      </div>
+
+      <div class="wiz-nav">
+        <button type="button" id="wizBack">Atras</button>
+        <button type="button" class="primary" id="wizNext">Siguiente</button>
+        <button type="button" class="primary" id="wizFinish" style="display:none">Finalizar</button>
+      </div>
+    </div>
+  </div>
+
+  <div id="resetModal" role="dialog" aria-modal="true">
+    <div class="modal-box">
+      <p>Esto borra la configuracion, el estado en memoria y los slots de guardado.</p>
+      <p>Escribe <strong>RECONFIGURAR</strong> para confirmar:</p>
+      <input id="resetConfirmInput" autocomplete="off" spellcheck="false" />
+      <div class="wiz-nav">
+        <button type="button" id="btnCancelReset">Cancelar</button>
+        <button type="button" id="btnConfirmReset">Borrar y reiniciar asistente</button>
+      </div>
+    </div>
+  </div>
+
   <div class="bezel">
     <div class="screen">
       <div class="hero" role="img" aria-label="Ilustracion pixel: monitor CPC, castillo y aventura de texto SINTAXIA">
@@ -478,6 +689,9 @@
               <button id="btnRefresh"
                       data-tip-title="REFRESH"
                       data-tip="Vuelve a leer del servidor estado, configuracion y lista de partidas guardadas.">Refresh</button>
+              <button class="danger" id="btnFactoryReset"
+                      data-tip-title="RECONFIGURAR"
+                      data-tip="Borra config, partida en memoria y slots. Vuelve al asistente de instalacion. Requiere escribir RECONFIGURAR.">Reconfigurar…</button>
             </div>
             <p class="hint"
                data-tip-title="RUTAS"
@@ -974,9 +1188,254 @@
       toast("TURN OK");
       await refresh();
     };
-    refresh().catch(e => {
+
+    /* ——— Setup wizard ——— */
+    let wizStep = 1;
+    let wizTestOk = null; // null | true | false
+    let wizListenPort = 8080;
+    let wizDefaults = {};
+
+    function showWizard(open) {
+      document.body.classList.toggle("setup-mode", open);
+      $("setup-wizard").classList.toggle("open", open);
+    }
+
+    function wizIsMock() {
+      return $("wizMode").value === "mock";
+    }
+
+    function applyWizProviderPreset() {
+      const p = $("wizProvider").value;
+      const preset = PROVIDER_PRESETS[p] || (wizDefaults[p] || {});
+      if (preset.model) $("wizModel").value = preset.model;
+      if (preset.api_base !== undefined) $("wizApiBase").value = preset.api_base;
+      if (preset.ollama_url) $("wizOllama").value = preset.ollama_url;
+    }
+
+    function updateHostLine() {
+      const ips = ($("wizIps").dataset.ips || "127.0.0.1").split(",");
+      const ip = ips[0] || "127.0.0.1";
+      const port = Number($("wizPort").value) || wizListenPort;
+      $("wizHostLine").textContent = ip + ":" + port;
+      const hint = $("wizPortHint");
+      if (port !== wizListenPort) {
+        hint.style.display = "block";
+        hint.textContent = "Puerto distinto al actual (" + wizListenPort + "). Reinicia el servidor tras Finalizar para aplicarlo.";
+      } else {
+        hint.style.display = "none";
+      }
+    }
+
+    function renderWizStep() {
+      document.querySelectorAll(".wiz-step").forEach(el => {
+        el.classList.toggle("active", Number(el.dataset.step) === wizStep);
+      });
+      $("wizProgress").textContent = "PASO " + wizStep + " / 6";
+      $("wizBack").style.visibility = wizStep === 1 ? "hidden" : "visible";
+      $("wizNext").style.display = wizStep === 6 ? "none" : "inline-block";
+      $("wizFinish").style.display = wizStep === 6 ? "inline-block" : "none";
+
+      $("wizProviderWrap").style.display = wizIsMock() ? "none" : "block";
+
+      if (wizStep === 5) updateHostLine();
+      if (wizStep === 6) {
+        const mock = wizIsMock();
+        const lines = [
+          "Modo: " + (mock ? "MOCK" : "IA"),
+          mock ? "" : ("Proveedor: " + $("wizProvider").value),
+          mock ? "" : ("Modelo: " + $("wizModel").value),
+          "Puerto preferido: " + $("wizPort").value,
+          "HOST: " + $("wizHostLine").textContent,
+          "Lugar inicial: " + $("wizStartLoc").value,
+        ].filter(Boolean);
+        $("wizSummary").textContent = lines.join("\n");
+        const soft = $("wizSoftWarn");
+        if (!mock && wizTestOk !== true) {
+          soft.style.display = "block";
+          soft.textContent = wizTestOk === false
+            ? "La prueba de conexion fallo. Puedes Finalizar igual si sabes que la API estara disponible."
+            : "No has probado la conexion. Puedes Finalizar igual.";
+        } else {
+          soft.style.display = "none";
+        }
+      }
+    }
+
+    async function loadDefaultPromptIntoWizard() {
+      try {
+        const data = await api("/api/default_prompt");
+        if (data.ok && data.system) $("wizSystem").value = data.system;
+        if (data.state && data.state.location) $("wizStartLoc").value = data.state.location;
+      } catch (_) { /* defaults locales */ }
+    }
+
+    async function wizProbe() {
+      const provider = $("wizProvider").value;
+      const rawKey = $("wizApiKey").value.trim();
+      const rawBase = $("wizApiBase").value.trim();
+      const msg = $("wizTestMsg");
+      msg.className = "";
+      msg.textContent = "Probando…";
+      try {
+        const url = "/api/models"
+          + "?provider=" + encodeURIComponent(provider)
+          + "&api_base=" + encodeURIComponent(rawBase)
+          + "&api_key=" + encodeURIComponent(rawKey);
+        const data = await api(url);
+        if (data.ok === false) {
+          wizTestOk = false;
+          msg.className = "wiz-warn";
+          msg.textContent = "Fallo: " + (data.error || "sin modelos");
+          return;
+        }
+        wizTestOk = true;
+        msg.className = "wiz-ok";
+        msg.textContent = "OK — " + (data.models || []).length + " modelos";
+        if ((data.models || []).length && !$("wizModel").value) {
+          $("wizModel").value = data.models[0];
+        }
+      } catch (e) {
+        wizTestOk = false;
+        msg.className = "wiz-warn";
+        msg.textContent = "Error: " + e;
+      }
+    }
+
+    function buildCompleteBody() {
+      const mock = wizIsMock();
+      const body = {
+        mock,
+        provider: mock ? "ollama" : $("wizProvider").value,
+        model: $("wizModel").value.trim(),
+        ollama_url: $("wizOllama").value.trim(),
+        api_base: $("wizApiBase").value.trim(),
+        preferred_port: Number($("wizPort").value) || 8080,
+        system: $("wizSystem").value,
+        start_state: {
+          location: $("wizStartLoc").value.trim() || "entrada del castillo",
+          inventory: [],
+          flags: {},
+        },
+      };
+      const key = $("wizApiKey").value.trim();
+      if (key) body.api_key = key;
+      return body;
+    }
+
+    $("wizMode").onchange = () => {
+      wizTestOk = null;
+      renderWizStep();
+    };
+    $("wizProvider").onchange = () => {
+      wizTestOk = null;
+      applyWizProviderPreset();
+    };
+    $("wizPort").oninput = updateHostLine;
+    $("wizBtnTest").onclick = () => wizProbe();
+    $("wizBack").onclick = () => {
+      if (wizStep === 4 && wizIsMock()) wizStep = 2;
+      else if (wizStep > 1) wizStep -= 1;
+      renderWizStep();
+    };
+    $("wizNext").onclick = () => {
+      if (wizStep === 2 && wizIsMock()) {
+        wizStep = 4;
+      } else if (wizStep === 2) {
+        applyWizProviderPreset();
+        wizStep = 3;
+      } else if (wizStep === 3) {
+        const p = $("wizProvider").value;
+        if (NEEDS_KEY.has(p) && !$("wizApiKey").value.trim()) {
+          toast("API KEY OBLIGATORIA");
+          return;
+        }
+        if (!$("wizModel").value.trim()) {
+          toast("INDICA MODELO");
+          return;
+        }
+        wizStep = 4;
+      } else if (wizStep < 6) {
+        wizStep += 1;
+      }
+      renderWizStep();
+    };
+    $("wizFinish").onclick = async () => {
+      const body = buildCompleteBody();
+      if (!body.mock && NEEDS_KEY.has(body.provider) && !body.api_key) {
+        toast("API KEY OBLIGATORIA");
+        return;
+      }
+      try {
+        const r = await fetch("/api/setup/complete", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(body),
+        });
+        const data = await r.json();
+        if (!r.ok || !data.ok) {
+          toast(data.error || ("HTTP " + r.status));
+          return;
+        }
+        toast(data.restart_for_port ? "OK — REINICIA PARA EL PUERTO" : "SETUP OK");
+        showWizard(false);
+        await refresh();
+      } catch (e) {
+        toast(String(e));
+      }
+    };
+
+    $("btnFactoryReset").onclick = () => {
+      $("resetConfirmInput").value = "";
+      $("resetModal").classList.add("open");
+      $("resetConfirmInput").focus();
+    };
+    $("btnCancelReset").onclick = () => $("resetModal").classList.remove("open");
+    $("btnConfirmReset").onclick = async () => {
+      const confirm = $("resetConfirmInput").value.trim();
+      try {
+        const r = await fetch("/api/setup/reset", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ confirm }),
+        });
+        const data = await r.json();
+        if (!r.ok || !data.ok) {
+          toast(data.error || "RESET DENEGADO");
+          return;
+        }
+        $("resetModal").classList.remove("open");
+        toast("RECONFIGURAR OK");
+        await bootUi();
+      } catch (e) {
+        toast(String(e));
+      }
+    };
+
+    async function bootUi() {
+      const st = await api("/api/setup/status");
+      wizListenPort = st.listen_port || 8080;
+      wizDefaults = st.defaults || {};
+      $("wizPort").value = st.preferred_port || wizListenPort;
+      const ips = st.local_ips || ["127.0.0.1"];
+      $("wizIps").textContent = ips.join(" · ");
+      $("wizIps").dataset.ips = ips.join(",");
+      if (!st.setup_complete) {
+        wizStep = 1;
+        wizTestOk = null;
+        applyWizProviderPreset();
+        await loadDefaultPromptIntoWizard();
+        showWizard(true);
+        renderWizStep();
+        return;
+      }
+      showWizard(false);
+      await refresh();
+    }
+
+    bootUi().catch(e => {
       $("statusBox").innerHTML = '<span class="led"></span>ERROR: ' + e;
       $("statusBox").className = "status bad";
+      showWizard(false);
     });
   </script>
 </body>
