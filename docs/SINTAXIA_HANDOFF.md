@@ -1,18 +1,18 @@
 # SINTAXIA — Handoff de sesión
 
-**Fecha:** 2026-08-12 — enlace reportaje AUA  
+**Fecha:** 2026-08-12 — enlace artículo AUA  
 **Workspace local:** `C:\@MIS PROYECTOS\M4`  
 **Repo GitHub:** https://github.com/kapi21/SINTAXIA  
-**Branch:** `demo-v1.1` (no mergeado a `main` aún)
+**Branch:** `main` (incluye demo-v1.1)
 
 ---
 
 ## Estado
 
 - **Proyecto:** SINTAXIA — aventura conversacional IA para Amstrad CPC + M4 Board
-- **Rama activa de trabajo:** `demo-v1.1`
+- **Rama activa de trabajo:** `main`
 - **Servidor:** asistente de setup obligatorio + memoria de trama / historial ampliado
-- **Prensa:** [reportaje AUA (XeNoMoRPH)](https://auamstrad.es/software/sintaxia-una-aventura-conversacional-con-ia/) — Demo v1; comentarios piden vídeo y más coherencia (esta última ya mejorada en v1.1)
+- **Comunidad:** [artículo en AUA (XeNoMoRPH)](https://auamstrad.es/software/sintaxia-una-aventura-conversacional-con-ia/) — web de entusiastas Amstrad; Demo v1; comentarios piden vídeo y más coherencia (esta última ya mejorada en v1.1)
 - **Aparcado** (`archivo/`, gitignored): presencia_ui, tokenizado_cpc, music_exp, imagen_trabajo, material M4
 
 ---
@@ -22,7 +22,7 @@
 1. **Setup wizard** en `/ui` (primera instalación + Reconfigurar con wipe total)
 2. **Memoria LLM:** historial ~20 mensajes (~10 turnos) alineado guardado/enviado; `plot_summary` al recortar; compactación LLM si crece; persistido en saves
 3. Docs: MANUAL + README roadmap + tests `test_setup_wizard` / `test_plot_memory`
-4. Enlace al reportaje AUA en README (prensa + créditos) y este handoff
+4. Enlace al artículo AUA en README (escena Amstrad + créditos) y este handoff; `demo-v1.1` mergeada a `main`
 
 ---
 
