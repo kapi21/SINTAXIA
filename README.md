@@ -163,10 +163,17 @@ python -m pytest
 
 ---
 
+## En la prensa
+
+- [SINTAXIA: una aventura conversacional con IA llega al Amstrad CPC gracias a la M4](https://auamstrad.es/software/sintaxia-una-aventura-conversacional-con-ia/) — AUA / XeNoMoRPH (agosto 2026)
+
+---
+
 ## Creditos / hardware
 
 - M4 Board — [M4Duke/m4hardware](https://github.com/M4Duke/m4hardware)
 - Inspirado en las aventuras conversacionales españolas de los 80
+- Reportaje AUA — [auamstrad.es](https://auamstrad.es/software/sintaxia-una-aventura-conversacional-con-ia/) (XeNoMoRPH)
 
 ## Licencia
 
