@@ -1,6 +1,8 @@
-# Genera dist/SINTAXIA_Demo_v1.zip para repartir (demo jugable).
+# Genera dist/SINTAXIA_Demo_v<Version>.zip para repartir (demo jugable).
 # Uso (desde la raiz del repo):
-#   powershell -ExecutionPolicy Bypass -File tools\pack_jugador.ps1
+#   powershell -ExecutionPolicy Bypass -File tools\pack_jugador.ps1 [-Version 1.1]
+
+param([string]$Version = "1.1")
 
 $ErrorActionPreference = "Stop"
 $root = Split-Path -Parent $PSScriptRoot
@@ -9,7 +11,7 @@ if (-not (Test-Path (Join-Path $root "run_server.bat"))) {
 }
 Set-Location $root
 
-$pkgName = "SINTAXIA_Demo_v1"
+$pkgName = "SINTAXIA_Demo_v$Version"
 $staging = Join-Path $root "dist\$pkgName"
 $zipPath = Join-Path $root "dist\$pkgName.zip"
 
@@ -32,7 +34,7 @@ New-Item -ItemType Directory -Force -Path @(
 Copy-Item "$root\run_server.bat" "$staging\01_PC\run_server.bat"
 @(
   "__init__.py","ai_adventure.py","cpc_text.py","game_state.py","llm_providers.py",
-  "protocol.py","save_game.py","server.py","settings_store.py"
+  "protocol.py","save_game.py","server.py","settings_store.py","setup_wizard.py"
 ) | ForEach-Object { Copy-Item "$root\server\$_" "$staging\01_PC\server\$_" }
 Copy-Item "$root\server\prompts\*" "$staging\01_PC\server\prompts\"
 Copy-Item "$root\server\saves\.gitkeep" "$staging\01_PC\server\saves\"
@@ -48,7 +50,7 @@ Copy-Item "$root\docs\GUIA_JUGADOR.md","$root\docs\MANUAL.md","$root\docs\CARGA.
 Copy-Item "$root\LICENSE" "$staging\LICENSE"
 
 @"
-SINTAXIA — Demo Version 1
+SINTAXIA — Demo Version $Version
 =========================
 Aventura conversacional IA para Amstrad CPC + M4 Board + PC.
 Paquete de demostracion jugable (no es una version final de producto).
@@ -81,20 +83,20 @@ Mas detalle: 03_docs\GUIA_JUGADOR.md
 "@ | Set-Content -Encoding utf8 "$staging\LEEME.txt"
 
 @"
-SINTAXIA Demo v1 - copia TODO a la microSD.
+SINTAXIA Demo v$Version - copia TODO a la microSD.
 CPC: RUN"sintaxia
 HOST.TXT = IP:puerto del PC
 "@ | Set-Content -Encoding utf8 "$staging\02_microSD\LEEME_SD.txt"
 
 @"
-SINTAXIA Demo v1 - PC
+SINTAXIA Demo v$Version - PC
 run_server.bat -> http://127.0.0.1:8080/ui
 "@ | Set-Content -Encoding utf8 "$staging\01_PC\LEEME_PC.txt"
 
 # VERSION.txt visible al descomprimir
 @"
 SINTAXIA
-Demo Version 1
+Demo Version $Version
 Fecha paquete: $(Get-Date -Format "yyyy-MM-dd")
 "@ | Set-Content -Encoding utf8 "$staging\VERSION.txt"
 
